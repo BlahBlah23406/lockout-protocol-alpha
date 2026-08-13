@@ -1,0 +1,17 @@
+<resources>
+    <style name="Theme.Guardian" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/lcars_orange</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="android:windowBackground">@color/space</item>
+        <item name="android:textColor">@color/lcars_orange</item>
+        <item name="colorControlNormal">@color/lcars_blue</item>
+        <item name="colorControlActivated">@color/lcars_gold</item>
+    </style>
+
+    <style name="Theme.Transparent" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>

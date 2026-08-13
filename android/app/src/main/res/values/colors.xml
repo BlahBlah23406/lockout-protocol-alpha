@@ -1,0 +1,15 @@
+<resources>
+    <color name="primary">#FF9966</color>
+    <color name="primary_dark">#13325C</color>
+    <color name="block_bg">#05070D</color>
+    <color name="block_accent">#E0533D</color>
+
+    <!-- LCARS palette -->
+    <color name="space">#05070D</color>
+    <color name="lcars_orange">#FF9966</color>
+    <color name="lcars_gold">#FFCC66</color>
+    <color name="lcars_blue">#7FB0FF</color>
+    <color name="lcars_lilac">#CC88CC</color>
+    <color name="lcars_red">#E0533D</color>
+    <color name="lcars_panel">#14182B</color>
+</resources>

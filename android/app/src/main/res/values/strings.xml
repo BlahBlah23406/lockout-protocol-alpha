@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Guardian</string>
+    <string name="accessibility_desc">Detects which app is in the foreground so Guardian can monitor only the apps you selected.</string>
+    <string name="device_admin_desc">Allows Guardian to detect and resist tampering. Removing this admin notifies your accountability contact.</string>
+</resources>

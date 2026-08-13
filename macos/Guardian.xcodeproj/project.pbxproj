@@ -1,0 +1,611 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05F04199B2131CE876EC3EA6 /* Overrides.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C3A76D8C1269036C9AF9E2 /* Overrides.swift */; };
+		0D496163374CE614FE83170B /* GuardianApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD05F7F7FD62F45A0B45091F /* GuardianApp.swift */; };
+		1584F638FE306AA0DAE0A7BE /* PledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B7567453E43DDC3C267F1A /* PledgeView.swift */; };
+		1CF569BD402F0ECD5F3C969E /* SettingsGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EB7D3EDB7D167A2787E768A /* SettingsGuard.swift */; };
+		1DAE0E646532C97143B72C8B /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E77C8DD9F77D81BE68417155 /* MenuBarView.swift */; };
+		2DE188C5154E4B1A80DE2FC2 /* Pusher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C04B53F5D09A7AD623E1BD0 /* Pusher.swift */; };
+		3331041E8689CF116E486679 /* FrameQuality.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33714A258020752D591E487 /* FrameQuality.swift */; };
+		39BC821188A701D7246120E9 /* AppPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3F9D41BC8A406ECD5ABEC44 /* AppPickerView.swift */; };
+		3BD449EE0723EAD7C5FB280A /* TamperGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ED81446544ECAB13B1B6325 /* TamperGuard.swift */; };
+		3F35994C495ACF05C90DD978 /* SafetyCovenant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47BBF7B044AC953B963AE5AF /* SafetyCovenant.swift */; };
+		4189AB503FCE13C371589D4A /* FrontmostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F629D55277E3D57237FC766D /* FrontmostApp.swift */; };
+		41BA1F4F6428B5FA886CFADC /* ScreenState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06CCA58552AA8E3904DB2A90 /* ScreenState.swift */; };
+		46409283A1D16DF0978D585A /* AppSelectList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8252A30FD590C2243A219D34 /* AppSelectList.swift */; };
+		52D89236E247CACC9BB8A61E /* MonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F2ED6B566A2CA6E77FF197 /* MonitorService.swift */; };
+		56123F0B45D9DFEAD9888912 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E51BC2A0C90134102337753 /* SettingsView.swift */; };
+		5E487BB4945FAFDE9833E268 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611FE4CEAA63EA3C43053290 /* Keychain.swift */; };
+		69A770CA11D995B2B959CA3B /* GuidelinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5206DD181365BD14CDBABC69 /* GuidelinesView.swift */; };
+		6F14530F7198B8AE0F6B6AC9 /* BlockController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2052F813B255CB92C1A07D1 /* BlockController.swift */; };
+		799FF0EE8B0295D61B74B3F9 /* EventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F355760B51F02F29CAD3E9 /* EventLog.swift */; };
+		8B1A3C6676943DE459915BBF /* BlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A67820050ACA869C762FCDC /* BlockView.swift */; };
+		9F02CA9CA8125F1026DD935D /* com.lockoutprotocol.guardian.keepalive.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F6F56F5146288780A644AD6B /* com.lockoutprotocol.guardian.keepalive.plist */; };
+		A1E2D550F5B5EE67696809B1 /* Prefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A30B79C16F26C184F0B916D4 /* Prefs.swift */; };
+		A2E696A65E237192FFF86E0A /* Emulators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D1A83EADF81366748C3776D /* Emulators.swift */; };
+		AC752552F24A3F786D04A0AF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F48C490AA01D6D787D69961 /* Assets.xcassets */; };
+		AD08C41D2459802F7B464B1E /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDBC2397B57ECEAE5C8B716 /* RootView.swift */; };
+		AF1CD7806882133B6DC97EEE /* TamperAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0990BF9796B73CDA7DB93B4 /* TamperAlert.swift */; };
+		B0769F0FEFE3F867F42D04EA /* GuardianTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE39A1E5018B5A7D190768A /* GuardianTests.swift */; };
+		B8AF71AFF5D2DB2070A7FF81 /* ScreenCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 262CD197675801E5A9067112 /* ScreenCapturer.swift */; };
+		E2DB7F040F75E0CFB4AE33C3 /* KeepAliveAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519209A2008C116F4A4AB444 /* KeepAliveAgent.swift */; };
+		E910D5434230C618E648154F /* OllamaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D14A2610779DCF5F5592743 /* OllamaClient.swift */; };
+		EA25A8EF23E4B91CD63387A1 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5229B5D1FB7420015BF8BC /* ContentView.swift */; };
+		EE29DEAC8D0BB0FA936356C1 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE26037AFA892BF9AA2D3FB0 /* LaunchAtLogin.swift */; };
+		F652E85C36B37583C0FDEC31 /* PasscodeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E58CF1ACDFF9ADDDDFD6AED8 /* PasscodeEditor.swift */; };
+		F8C9ADC614E764FA5D4CA859 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BADDDBCE2798EE994239A20 /* Theme.swift */; };
+		FD4B803BD6625A515C2D6733 /* InstalledApps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03FF2DECDC6DA4CDCD1E61C7 /* InstalledApps.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		768F0EB54BE30F2CAFFB4571 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 43B7EA379EFCFB7E728319A0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DFEB16E4810B393EE8FADA86;
+			remoteInfo = Guardian;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2619E0562224A63F57ED93D3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchAgents;
+			dstSubfolderSpec = 1;
+			files = (
+				9F02CA9CA8125F1026DD935D /* com.lockoutprotocol.guardian.keepalive.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		036F31312273863A4BB5BAD0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		03FF2DECDC6DA4CDCD1E61C7 /* InstalledApps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledApps.swift; sourceTree = "<group>"; };
+		06CCA58552AA8E3904DB2A90 /* ScreenState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenState.swift; sourceTree = "<group>"; };
+		0E51BC2A0C90134102337753 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		1A67820050ACA869C762FCDC /* BlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockView.swift; sourceTree = "<group>"; };
+		262CD197675801E5A9067112 /* ScreenCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapturer.swift; sourceTree = "<group>"; };
+		3BDBC2397B57ECEAE5C8B716 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		41F355760B51F02F29CAD3E9 /* EventLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventLog.swift; sourceTree = "<group>"; };
+		47BBF7B044AC953B963AE5AF /* SafetyCovenant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyCovenant.swift; sourceTree = "<group>"; };
+		4ED81446544ECAB13B1B6325 /* TamperGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TamperGuard.swift; sourceTree = "<group>"; };
+		519209A2008C116F4A4AB444 /* KeepAliveAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAliveAgent.swift; sourceTree = "<group>"; };
+		5206DD181365BD14CDBABC69 /* GuidelinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidelinesView.swift; sourceTree = "<group>"; };
+		5F48C490AA01D6D787D69961 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		611FE4CEAA63EA3C43053290 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+		6EB7D3EDB7D167A2787E768A /* SettingsGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsGuard.swift; sourceTree = "<group>"; };
+		7C04B53F5D09A7AD623E1BD0 /* Pusher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pusher.swift; sourceTree = "<group>"; };
+		7EE39A1E5018B5A7D190768A /* GuardianTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianTests.swift; sourceTree = "<group>"; };
+		8252A30FD590C2243A219D34 /* AppSelectList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSelectList.swift; sourceTree = "<group>"; };
+		85C3A76D8C1269036C9AF9E2 /* Overrides.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Overrides.swift; sourceTree = "<group>"; };
+		9BADDDBCE2798EE994239A20 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		9D14A2610779DCF5F5592743 /* OllamaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaClient.swift; sourceTree = "<group>"; };
+		9D1A83EADF81366748C3776D /* Emulators.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Emulators.swift; sourceTree = "<group>"; };
+		A30B79C16F26C184F0B916D4 /* Prefs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prefs.swift; sourceTree = "<group>"; };
+		A7EB4675684B9035F23B9599 /* Guardian.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Guardian.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A9B7567453E43DDC3C267F1A /* PledgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PledgeView.swift; sourceTree = "<group>"; };
+		AD05F7F7FD62F45A0B45091F /* GuardianApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuardianApp.swift; sourceTree = "<group>"; };
+		AE26037AFA892BF9AA2D3FB0 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
+		C2052F813B255CB92C1A07D1 /* BlockController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockController.swift; sourceTree = "<group>"; };
+		C33714A258020752D591E487 /* FrameQuality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameQuality.swift; sourceTree = "<group>"; };
+		D3F9D41BC8A406ECD5ABEC44 /* AppPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPickerView.swift; sourceTree = "<group>"; };
+		E0990BF9796B73CDA7DB93B4 /* TamperAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TamperAlert.swift; sourceTree = "<group>"; };
+		E58CF1ACDFF9ADDDDFD6AED8 /* PasscodeEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasscodeEditor.swift; sourceTree = "<group>"; };
+		E77C8DD9F77D81BE68417155 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		EEF17952038CD75D0B238108 /* Guardian.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Guardian.entitlements; sourceTree = "<group>"; };
+		F629D55277E3D57237FC766D /* FrontmostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmostApp.swift; sourceTree = "<group>"; };
+		F6882AEC9E586DA5CD983C47 /* GuardianTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GuardianTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6F56F5146288780A644AD6B /* com.lockoutprotocol.guardian.keepalive.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.lockoutprotocol.guardian.keepalive.plist; sourceTree = "<group>"; };
+		F8F2ED6B566A2CA6E77FF197 /* MonitorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorService.swift; sourceTree = "<group>"; };
+		FE5229B5D1FB7420015BF8BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		25BB903682F66F1934D61983 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A7EB4675684B9035F23B9599 /* Guardian.app */,
+				F6882AEC9E586DA5CD983C47 /* GuardianTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		30FAC56FCF949219CB8D508C /* Push */ = {
+			isa = PBXGroup;
+			children = (
+				7C04B53F5D09A7AD623E1BD0 /* Pusher.swift */,
+			);
+			path = Push;
+			sourceTree = "<group>";
+		};
+		5167791F30B164FE93A187CF /* Guardian */ = {
+			isa = PBXGroup;
+			children = (
+				5F48C490AA01D6D787D69961 /* Assets.xcassets */,
+				F6F56F5146288780A644AD6B /* com.lockoutprotocol.guardian.keepalive.plist */,
+				EEF17952038CD75D0B238108 /* Guardian.entitlements */,
+				AD05F7F7FD62F45A0B45091F /* GuardianApp.swift */,
+				036F31312273863A4BB5BAD0 /* Info.plist */,
+				C65C8F77C0A17B0A389E9BA1 /* AI */,
+				81D4012C9ED698D08C772F26 /* Capture */,
+				9EBF74486D13875EE56FA839 /* Models */,
+				30FAC56FCF949219CB8D508C /* Push */,
+				9812BF84B105A9927469A1CD /* Service */,
+				7D70B8C5D67D7F7E4832E76E /* UI */,
+			);
+			path = Guardian;
+			sourceTree = "<group>";
+		};
+		7D70B8C5D67D7F7E4832E76E /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				D3F9D41BC8A406ECD5ABEC44 /* AppPickerView.swift */,
+				8252A30FD590C2243A219D34 /* AppSelectList.swift */,
+				1A67820050ACA869C762FCDC /* BlockView.swift */,
+				FE5229B5D1FB7420015BF8BC /* ContentView.swift */,
+				5206DD181365BD14CDBABC69 /* GuidelinesView.swift */,
+				E77C8DD9F77D81BE68417155 /* MenuBarView.swift */,
+				E58CF1ACDFF9ADDDDFD6AED8 /* PasscodeEditor.swift */,
+				A9B7567453E43DDC3C267F1A /* PledgeView.swift */,
+				3BDBC2397B57ECEAE5C8B716 /* RootView.swift */,
+				0E51BC2A0C90134102337753 /* SettingsView.swift */,
+				9BADDDBCE2798EE994239A20 /* Theme.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		81D4012C9ED698D08C772F26 /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				9D1A83EADF81366748C3776D /* Emulators.swift */,
+				F629D55277E3D57237FC766D /* FrontmostApp.swift */,
+				03FF2DECDC6DA4CDCD1E61C7 /* InstalledApps.swift */,
+				262CD197675801E5A9067112 /* ScreenCapturer.swift */,
+				06CCA58552AA8E3904DB2A90 /* ScreenState.swift */,
+			);
+			path = Capture;
+			sourceTree = "<group>";
+		};
+		9812BF84B105A9927469A1CD /* Service */ = {
+			isa = PBXGroup;
+			children = (
+				C2052F813B255CB92C1A07D1 /* BlockController.swift */,
+				519209A2008C116F4A4AB444 /* KeepAliveAgent.swift */,
+				AE26037AFA892BF9AA2D3FB0 /* LaunchAtLogin.swift */,
+				F8F2ED6B566A2CA6E77FF197 /* MonitorService.swift */,
+				85C3A76D8C1269036C9AF9E2 /* Overrides.swift */,
+				47BBF7B044AC953B963AE5AF /* SafetyCovenant.swift */,
+				6EB7D3EDB7D167A2787E768A /* SettingsGuard.swift */,
+				E0990BF9796B73CDA7DB93B4 /* TamperAlert.swift */,
+				4ED81446544ECAB13B1B6325 /* TamperGuard.swift */,
+			);
+			path = Service;
+			sourceTree = "<group>";
+		};
+		9EBF74486D13875EE56FA839 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				41F355760B51F02F29CAD3E9 /* EventLog.swift */,
+				611FE4CEAA63EA3C43053290 /* Keychain.swift */,
+				A30B79C16F26C184F0B916D4 /* Prefs.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		C65C8F77C0A17B0A389E9BA1 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				C33714A258020752D591E487 /* FrameQuality.swift */,
+				9D14A2610779DCF5F5592743 /* OllamaClient.swift */,
+			);
+			path = AI;
+			sourceTree = "<group>";
+		};
+		C9E7074110BD10E155F64D1F = {
+			isa = PBXGroup;
+			children = (
+				5167791F30B164FE93A187CF /* Guardian */,
+				FBF52FE84EE39156D62D8F83 /* GuardianTests */,
+				25BB903682F66F1934D61983 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FBF52FE84EE39156D62D8F83 /* GuardianTests */ = {
+			isa = PBXGroup;
+			children = (
+				7EE39A1E5018B5A7D190768A /* GuardianTests.swift */,
+			);
+			path = GuardianTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7F3EFA475F9067C9B3933862 /* GuardianTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 69136A1B4B0DFF6FE67B4506 /* Build configuration list for PBXNativeTarget "GuardianTests" */;
+			buildPhases = (
+				738BE597EBD1E092597A43FF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B9990CF63FE918AFB8A1D4FA /* PBXTargetDependency */,
+			);
+			name = GuardianTests;
+			packageProductDependencies = (
+			);
+			productName = GuardianTests;
+			productReference = F6882AEC9E586DA5CD983C47 /* GuardianTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DFEB16E4810B393EE8FADA86 /* Guardian */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B09EB55F591900D288D36DA0 /* Build configuration list for PBXNativeTarget "Guardian" */;
+			buildPhases = (
+				C4079718C392FA80318E9CD2 /* Sources */,
+				B53A4E7B37B53AE4F87EA406 /* Resources */,
+				2619E0562224A63F57ED93D3 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Guardian;
+			packageProductDependencies = (
+			);
+			productName = Guardian;
+			productReference = A7EB4675684B9035F23B9599 /* Guardian.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		43B7EA379EFCFB7E728319A0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					7F3EFA475F9067C9B3933862 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					DFEB16E4810B393EE8FADA86 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 5D30A183B83D3B560317D56F /* Build configuration list for PBXProject "Guardian" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = C9E7074110BD10E155F64D1F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 25BB903682F66F1934D61983 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DFEB16E4810B393EE8FADA86 /* Guardian */,
+				7F3EFA475F9067C9B3933862 /* GuardianTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B53A4E7B37B53AE4F87EA406 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AC752552F24A3F786D04A0AF /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		738BE597EBD1E092597A43FF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0769F0FEFE3F867F42D04EA /* GuardianTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4079718C392FA80318E9CD2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39BC821188A701D7246120E9 /* AppPickerView.swift in Sources */,
+				46409283A1D16DF0978D585A /* AppSelectList.swift in Sources */,
+				6F14530F7198B8AE0F6B6AC9 /* BlockController.swift in Sources */,
+				8B1A3C6676943DE459915BBF /* BlockView.swift in Sources */,
+				EA25A8EF23E4B91CD63387A1 /* ContentView.swift in Sources */,
+				A2E696A65E237192FFF86E0A /* Emulators.swift in Sources */,
+				799FF0EE8B0295D61B74B3F9 /* EventLog.swift in Sources */,
+				3331041E8689CF116E486679 /* FrameQuality.swift in Sources */,
+				4189AB503FCE13C371589D4A /* FrontmostApp.swift in Sources */,
+				0D496163374CE614FE83170B /* GuardianApp.swift in Sources */,
+				69A770CA11D995B2B959CA3B /* GuidelinesView.swift in Sources */,
+				FD4B803BD6625A515C2D6733 /* InstalledApps.swift in Sources */,
+				E2DB7F040F75E0CFB4AE33C3 /* KeepAliveAgent.swift in Sources */,
+				5E487BB4945FAFDE9833E268 /* Keychain.swift in Sources */,
+				EE29DEAC8D0BB0FA936356C1 /* LaunchAtLogin.swift in Sources */,
+				1DAE0E646532C97143B72C8B /* MenuBarView.swift in Sources */,
+				52D89236E247CACC9BB8A61E /* MonitorService.swift in Sources */,
+				E910D5434230C618E648154F /* OllamaClient.swift in Sources */,
+				05F04199B2131CE876EC3EA6 /* Overrides.swift in Sources */,
+				F652E85C36B37583C0FDEC31 /* PasscodeEditor.swift in Sources */,
+				1584F638FE306AA0DAE0A7BE /* PledgeView.swift in Sources */,
+				A1E2D550F5B5EE67696809B1 /* Prefs.swift in Sources */,
+				2DE188C5154E4B1A80DE2FC2 /* Pusher.swift in Sources */,
+				AD08C41D2459802F7B464B1E /* RootView.swift in Sources */,
+				3F35994C495ACF05C90DD978 /* SafetyCovenant.swift in Sources */,
+				B8AF71AFF5D2DB2070A7FF81 /* ScreenCapturer.swift in Sources */,
+				41BA1F4F6428B5FA886CFADC /* ScreenState.swift in Sources */,
+				1CF569BD402F0ECD5F3C969E /* SettingsGuard.swift in Sources */,
+				56123F0B45D9DFEAD9888912 /* SettingsView.swift in Sources */,
+				AF1CD7806882133B6DC97EEE /* TamperAlert.swift in Sources */,
+				3BD449EE0723EAD7C5FB280A /* TamperGuard.swift in Sources */,
+				F8C9ADC614E764FA5D4CA859 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B9990CF63FE918AFB8A1D4FA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DFEB16E4810B393EE8FADA86 /* Guardian */;
+			targetProxy = 768F0EB54BE30F2CAFFB4571 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1B55B374BFB6F94B1325870E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Guardian/Guardian.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Guardian/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lockoutprotocol.guardian;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		3B478C3A0FD9D46049228786 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		7EB3885407B23D4E116F4016 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lockoutprotocol.guardian.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Guardian.app/Contents/MacOS/Guardian";
+			};
+			name = Release;
+		};
+		830FF69040FCE11CDE97F368 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		8732AD5586A67DFD6B577F51 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Guardian/Guardian.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = Guardian/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lockoutprotocol.guardian;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		DF736755585DD75C8943DBB2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.lockoutprotocol.guardian.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Guardian.app/Contents/MacOS/Guardian";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5D30A183B83D3B560317D56F /* Build configuration list for PBXProject "Guardian" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				830FF69040FCE11CDE97F368 /* Debug */,
+				3B478C3A0FD9D46049228786 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		69136A1B4B0DFF6FE67B4506 /* Build configuration list for PBXNativeTarget "GuardianTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF736755585DD75C8943DBB2 /* Debug */,
+				7EB3885407B23D4E116F4016 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B09EB55F591900D288D36DA0 /* Build configuration list for PBXNativeTarget "Guardian" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8732AD5586A67DFD6B577F51 /* Debug */,
+				1B55B374BFB6F94B1325870E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 43B7EA379EFCFB7E728319A0 /* Project object */;
+}

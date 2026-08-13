@@ -1,0 +1,20 @@
+name = "guardian-heartbeat"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Cron Triggers run on the free plan and fire even with zero traffic.
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Replace id with the value printed by:  wrangler kv namespace create GUARDIAN_KV
+[[kv_namespaces]]
+binding = "GUARDIAN_KV"
+id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
+
+[vars]
+GRACE_MINUTES = "60"
+# Where the "your device went silent" email goes.
+ALERT_EMAIL = "you@example.com"
+RESEND_FROM = "Guardian <onboarding@resend.dev>"
+# RESEND_API_KEY is a secret, NOT a var. Set it with:
+#   wrangler secret put RESEND_API_KEY

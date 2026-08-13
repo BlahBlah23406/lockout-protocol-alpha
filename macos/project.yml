@@ -1,0 +1,64 @@
+name: Guardian
+options:
+  bundleIdPrefix: com.lockoutprotocol
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+
+targets:
+  Guardian:
+    type: application
+    platform: macOS
+    sources:
+      # Exclude the KeepAlive plist from the default (Resources) copy — it must land in
+      # Contents/Library/LaunchAgents/ instead, where SMAppService.agent(plistName:) looks for it.
+      - path: Guardian
+        excludes:
+          - "com.lockoutprotocol.guardian.keepalive.plist"
+      # Copy the KeepAlive LaunchAgent into Contents/Library/LaunchAgents/ so the runtime
+      # SMAppService.agent(...) registration in KeepAliveAgent.swift can find and enable it.
+      - path: Guardian/com.lockoutprotocol.guardian.keepalive.plist
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.guardian
+        INFOPLIST_FILE: Guardian/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Guardian/Guardian.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+
+  GuardianTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - GuardianTests
+    dependencies:
+      - target: Guardian
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.guardian.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Guardian:
+    build:
+      targets:
+        Guardian: all
+        GuardianTests: [test]
+    test:
+      targets:
+        - GuardianTests

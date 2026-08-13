@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  KeepAlive LaunchAgent for Guardian. Registered at runtime via SMAppService.agent(...) and copied
+  into the app bundle at Contents/Library/LaunchAgents/ by a build phase. BundleProgram is resolved
+  relative to the app bundle, so it works regardless of where Guardian is installed.
+
+  KeepAlive = true means launchd relaunches Guardian within ~10s whenever it exits — force-quit,
+  crash, or a plain Quit. This is the macOS analogue of Android's boot/heartbeat restart: quitting
+  the app is no longer a lasting bypass. Turn it off from Settings ▸ Tamper resistance (behind the
+  passcode) before quitting for legitimate reasons.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lockoutprotocol.guardian.keepalive</string>
+    <key>BundleProgram</key>
+    <string>Contents/MacOS/Guardian</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+</dict>
+</plist>
