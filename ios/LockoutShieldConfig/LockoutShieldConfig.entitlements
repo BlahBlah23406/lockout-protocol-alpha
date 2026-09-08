@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Shield appearance extension. Needs the App Group to read the session, and family-controls in its own right. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.lockoutprotocol.lockout</string>
+	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)group.com.lockoutprotocol.lockout</string>
+	</array>
+	<!--
+	  Apple must grant this per App ID, and it must be requested SEPARATELY for the app and for
+	  each Screen Time extension. Until it is granted the build fails to sign for a device; until
+	  it is granted for DISTRIBUTION, TestFlight is closed too. See ios/README.md.
+	-->
+	<key>com.apple.developer.family-controls</key>
+	<true/>
+</dict>
+</plist>

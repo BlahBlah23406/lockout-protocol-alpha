@@ -1,0 +1,169 @@
+name: build
+
+# Two jobs' worth of purpose:
+#
+#  1. On every push, run everything that can be run — so a broken commit is visible immediately
+#     rather than the next time somebody tries to build.
+#  2. On a tag, attach downloadable builds to a GitHub Release — because "clone the repo and set up
+#     a Python environment" is a fine instruction for a contributor and a terrible one for someone
+#     who just wants to try the thing.
+#
+# The macOS and iOS jobs are the honest gap: they need a Mac runner, and iOS additionally needs the
+# `family-controls` entitlement tied to a specific Apple Developer account, which no CI secret can
+# substitute for. The macOS job runs when a Mac runner is available; the iOS one is documented in
+# `ios/README.md` rather than pretended at here.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # needed only by the release job, to attach artifacts
+
+jobs:
+
+  # ---------------------------------------------------------------------------------------------
+  # Windows app + the learner. This is the job that covers most of the codebase.
+  # ---------------------------------------------------------------------------------------------
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install runtime dependencies
+        run: python -m pip install --upgrade pip pillow pystray pywin32
+
+      - name: Windows app tests
+        working-directory: windows
+        run: python run_tests.py
+
+      # The learner is stdlib-only by design, so it needs no install step at all.
+      - name: Learner tests
+        run: python -m unittest discover learner/tests -t .
+
+      - name: Learner end to end
+        run: |
+          python -m learner.cli simulate
+          python -m learner.cli learn
+          python -m learner.cli evaluate
+
+      - name: Cross-platform policy contract
+        working-directory: windows
+        run: python tests/test_policy_contract.py
+
+      - name: Build the Windows executable
+        run: |
+          python -m pip install pyinstaller
+          python tools/build_windows.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LockoutProtocol-windows
+          path: dist/LockoutProtocol/
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------------------------
+  # Android: compile, unit test, and produce an installable APK.
+  # ---------------------------------------------------------------------------------------------
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --console=plain
+
+      # Labelled "debug" on purpose. It installs and runs, but it is signed with the throwaway
+      # debug key, so it cannot be upgraded in place by a differently-signed build later. Anyone
+      # shipping this properly should sign it themselves — see the root README.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LockoutProtocol-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------------------------
+  # Structural checks that need no toolchain. Cheap, and they catch the class of mistake that a
+  # hand-written cross-platform port actually makes.
+  # ---------------------------------------------------------------------------------------------
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/check_macos.py
+      - run: python tools/check_xcodeproj.py
+      - run: python tools/check_ios.py
+
+  # ---------------------------------------------------------------------------------------------
+  # macOS: the real compile + test. Runs on a Mac runner; the app is unsigned, which is fine for
+  # a build check and not distributable.
+  # ---------------------------------------------------------------------------------------------
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        working-directory: macos
+        run: |
+          xcodebuild -scheme Guardian -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO test
+
+  # ---------------------------------------------------------------------------------------------
+  # Release: attach the builds to the tag.
+  # ---------------------------------------------------------------------------------------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, android, structure]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cd artifacts/LockoutProtocol-windows
+          zip -r ../../release/LockoutProtocol-windows.zip .
+          cd ../..
+          cp artifacts/LockoutProtocol-android-debug/app-debug.apk \
+             release/LockoutProtocol-android-debug.apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          body: |
+            ## Downloads
+
+            | Platform | File | Notes |
+            |---|---|---|
+            | Windows 10/11 | `LockoutProtocol-windows.zip` | Unzip, run `LockoutProtocol.exe`. Unsigned, so SmartScreen will warn once. |
+            | Android 14+ | `LockoutProtocol-android-debug.apk` | Debug-signed. Enable "install unknown apps" for your browser or file manager. |
+            | macOS 14+ | — | Build it yourself: `cd macos && xcodegen generate && open Guardian.xcodeproj`. Notarising needs a paid Apple account. |
+            | iOS 16+ | — | Needs Apple's `family-controls` entitlement, granted per developer account. See `ios/README.md`. |
+
+            Everything runs against a model provider you choose — including a local Ollama, which
+            costs nothing and sends nothing off your machine.

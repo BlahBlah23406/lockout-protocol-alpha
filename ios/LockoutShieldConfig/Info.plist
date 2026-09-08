@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Lockout Shield</string>
+	<!--
+	  An app extension bundle declares exactly ONE extension point, which is why the shield's
+	  appearance and the shield's buttons are two targets rather than one: they are two distinct
+	  Screen Time extension points and Apple requires a bundle each. They are also entitled
+	  separately, which is the part that catches people out — see ios/README.md.
+	-->
+	<key>NSExtension</key>
+	<dict>
+		<key>NSExtensionPointIdentifier</key>
+		<string>com.apple.ManagedSettings.shield-configuration-service</string>
+		<key>NSExtensionPrincipalClass</key>
+		<string>$(PRODUCT_MODULE_NAME).ShieldConfigurationExtension</string>
+	</dict>
+</dict>
+</plist>

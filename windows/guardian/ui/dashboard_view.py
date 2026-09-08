@@ -1,7 +1,12 @@
-"""Port of `UI/ContentView.swift` — the main Guardian dashboard.
+"""The main dashboard.
 
-Shows status readouts, tamper defense indicators, control buttons (Start/Stop, Arm/Test mode),
-picker triggers (Apps, Guidelines, Settings), and the live monospace activity log.
+Reorganised around the focus session: the top of the screen answers "is a session running, what
+did I say I was doing, and how is it going", and the controls below start or end one. The old
+always-on Start/Stop pair is gone, because monitoring is no longer a mode you leave running — it
+begins and ends with a session.
+
+Tamper defences and the activity log are unchanged; they are still the honest record of what the
+app did and whether it is still able to do it.
 """
 
 import threading
@@ -10,10 +15,12 @@ from tkinter import ttk
 
 from . import theme as T
 from .app_picker_view import AppPickerWindow
+from .focus_start_view import FocusStartWindow
 from .guidelines_view import GuidelinesWindow
 from .passcode_prompt import require
 from .settings_view import SettingsWindow
 from ..capture import screen_capturer
+from ..focus.session import ACC_LOCKED, SessionStore
 from ..models.event_log import EventLog
 from ..models.prefs import Prefs
 from ..service import persistence
@@ -26,6 +33,7 @@ class DashboardFrame(tk.Frame):
         super().__init__(master, bg=T.SPACE)
         self.prefs = Prefs.shared()
         self.monitor = MonitorService.shared()
+        self.sessions = SessionStore.shared()
         self.event_log = EventLog.shared()
         self.on_close = on_close
 
@@ -35,6 +43,7 @@ class DashboardFrame(tk.Frame):
         # Subscribe to live updates
         self.prefs.subscribe(self._update_readouts)
         self.monitor.subscribe(self._update_readouts)
+        self.sessions.subscribe(self._update_readouts)
         self.event_log.subscribe(self._on_log_entry)
 
         self._start_screen_rec_poll()
@@ -42,7 +51,7 @@ class DashboardFrame(tk.Frame):
         self._reload_full_log()
 
     def _build_ui(self):
-        T.LcarsHeader(self, "Guardian", "Accountability Monitor").pack(
+        T.LcarsHeader(self, "Lockout Protocol", "Focus Monitor").pack(
             fill="x", padx=16, pady=(14, 10))
 
         # ---- Top panels grid (Status + Defenses) ----
@@ -61,7 +70,8 @@ class DashboardFrame(tk.Frame):
         btn_row1 = tk.Frame(self, bg=T.SPACE)
         btn_row1.pack(fill="x", padx=16, pady=(0, 6))
 
-        self.btn_start_stop = T.LcarsButton(btn_row1, "Start", self._toggle_start_stop, color=T.ORANGE)
+        self.btn_start_stop = T.LcarsButton(btn_row1, "Start focus session",
+                                            self._toggle_session, color=T.ORANGE)
         self.btn_start_stop.pack(side="left", fill="x", expand=True, padx=(0, 4))
 
         self.btn_arm_test = T.LcarsButton(btn_row1, "Test Mode", self._toggle_arm_test, color=T.GOLD)
@@ -123,18 +133,38 @@ class DashboardFrame(tk.Frame):
         for w in self.status_box.winfo_children():
             w.destroy()
 
-        is_run = self.monitor.is_running
+        session = self.sessions.current
         dry = self.prefs.dry_run
 
-        rows = [
-            ("STATE", "MONITORING" if is_run else "STOPPED", T.READOUT if is_run else T.RED),
-            ("MODE", "TEST (no blocking)" if dry else "ARMED", T.GOLD if dry else T.RED),
-            ("ACTIVITY", self.monitor.status, T.READOUT),
-            ("WATCHING", f"{len(self.prefs.monitored_apps)} app(s)", T.READOUT),
-            ("ACCESS", "passcode set" if self.prefs.pin_set else "no passcode", T.READOUT if self.prefs.pin_set else T.LILAC),
-            ("MODEL", self.prefs.ollama_model, T.BLUE),
-            ("ALERTS", f"ntfy -> {self.prefs.ntfy_topic}" if self.prefs.push_enabled else "off", T.LILAC),
-        ]
+        if session is None:
+            rows = [
+                ("SESSION", "none - nothing is being watched", T.LILAC),
+                ("PRIVACY", "no screenshots are taken while idle", T.READOUT),
+                ("DEFAULTS", f"{len(self.prefs.monitored_apps)} app(s) on the watchlist", T.READOUT),
+                ("PROVIDER", f"{self.prefs.provider_model or 'not set'}", T.BLUE),
+                ("ACCESS", "passcode set" if self.prefs.pin_set else "no passcode",
+                 T.READOUT if self.prefs.pin_set else T.LILAC),
+                ("ALERTS", f"ntfy -> {self.prefs.ntfy_topic}" if self.prefs.push_enabled else "off",
+                 T.LILAC),
+            ]
+        else:
+            locked = session.accountability == ACC_LOCKED
+            left = session.remaining_seconds
+            when = "open-ended" if left is None else f"{int(left // 60)}m left"
+            rows = [
+                ("TASK", session.task[:56] or "(none)", T.GOLD),
+                ("MODE", "LOCKED - passcode to override" if locked else "self-managed",
+                 T.RED if locked else T.READOUT),
+                ("TIME", when + ("  [TEST - nothing is blocked]" if dry else ""),
+                 T.GOLD if dry else T.READOUT),
+                ("CHECKS", f"{session.checks} run, {session.off_task_count} off-task, "
+                           f"{session.override_count} override(s)", T.READOUT),
+                ("EVERY", f"{session.interval_seconds}s", T.READOUT),
+                ("WATCHING", f"{len(session.watchlist(self.prefs.monitored_apps))} app(s)",
+                 T.READOUT),
+                ("ACTIVITY", self.monitor.status, T.READOUT),
+                ("PROVIDER", self.prefs.provider_model or "not set", T.BLUE),
+            ]
 
         for label, val, col in rows:
             r = tk.Frame(self.status_box, bg=T.PANEL)
@@ -177,10 +207,11 @@ class DashboardFrame(tk.Frame):
                      anchor="w").pack(side="left", fill="x", expand=True)
 
     def _render_buttons(self):
-        if self.monitor.is_running:
-            self.btn_start_stop.configure(text="STOP", bg=T.RED, activebackground=T.RED)
+        if self.sessions.is_active:
+            self.btn_start_stop.configure(text="END SESSION", bg=T.RED, activebackground=T.RED)
         else:
-            self.btn_start_stop.configure(text="START", bg=T.ORANGE, activebackground=T.ORANGE)
+            self.btn_start_stop.configure(text="START FOCUS SESSION", bg=T.ORANGE,
+                                          activebackground=T.ORANGE)
 
         if self.prefs.dry_run:
             self.btn_arm_test.configure(text="ARM (TEST MODE ON)", bg=T.GOLD, activebackground=T.GOLD)
@@ -189,12 +220,17 @@ class DashboardFrame(tk.Frame):
 
     # ---- Actions -----------------------------------------------------------------------
 
-    def _toggle_start_stop(self):
-        if self.monitor.is_running:
-            if require(self, "stop Guardian"):
-                self.monitor.stop()
-        else:
-            self.monitor.start()
+    def _toggle_session(self):
+        session = self.sessions.current
+        if session is None:
+            FocusStartWindow(self.winfo_toplevel())
+            return
+        # Ending a locked session early is the commitment being broken, so it costs the passcode.
+        if session.requires_passcode_to_end() and not require(self, "end this locked session"):
+            return
+        self.sessions.end("ended by user")
+        self.monitor.stop()
+        self._update_readouts()
 
     def _toggle_arm_test(self):
         self.prefs.dry_run = not self.prefs.dry_run

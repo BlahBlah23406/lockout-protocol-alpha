@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// AI + alerts + blocking behaviour settings. Mirrors the Android SettingsActivity / NotifyActivity.
+/// Model provider, focus defaults, alerts, blocking, tamper resistance, passcode.
 struct SettingsView: View {
     @StateObject private var prefs = Prefs.shared
     @Environment(\.dismiss) private var dismiss
@@ -9,15 +9,18 @@ struct SettingsView: View {
     @State private var apiKey = ""
     @State private var apiKey2 = ""
     @State private var testResult = ""
+    @State private var providerResult = ""
+    @State private var providerOK = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            LcarsHeader(title: "Settings", subtitle: "AI · alerts · blocking")
+            LcarsHeader(title: "Settings", subtitle: "Model · alerts · blocking")
                 .padding(.bottom, 12)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     aiSection
+                    focusSection
                     alertsSection
                     blockingSection
                     tamperSection
@@ -49,22 +52,122 @@ struct SettingsView: View {
 
     // MARK: - Sections
 
+    /// Provider picker.
+    ///
+    /// A list of radio-style rows rather than a dropdown, on purpose: which model sees your screen
+    /// every two minutes is the most consequential setting in this app, and it deserves to be
+    /// visible all at once with its trade-off written next to it — not hidden behind a click.
     private var aiSection: some View {
-        section("AI (Ollama Cloud)") {
-            labeledField("Base URL", text: $prefs.ollamaBaseUrl)
-            labeledField("Model", text: $prefs.ollamaModel)
+        section("Model provider") {
+            ForEach(Providers.presets) { preset in
+                Button {
+                    prefs.providerId = preset.id
+                    providerResult = "Provider changed — press Test connection."
+                    providerOK = true
+                } label: {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: prefs.providerId == preset.id
+                              ? "largecircle.fill.circle" : "circle")
+                            .foregroundColor(prefs.providerId == preset.id ? LCARS.gold : LCARS.lilac)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(preset.label)
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundColor(LCARS.gold)
+                            Text(preset.hint)
+                                .font(.caption2).foregroundColor(LCARS.readout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            labeledField("Base URL", text: $prefs.providerBaseUrl)
+            labeledField("Model", text: $prefs.providerModel)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("API key").font(.caption).foregroundColor(LCARS.blue)
-                SecureField("ollama cloud api key", text: $apiKey)
-                    .textFieldStyle(.roundedBorder)
+                SecureField("api key", text: $apiKey).textFieldStyle(.roundedBorder)
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("API key 2 (backup)").font(.caption).foregroundColor(LCARS.blue)
-                SecureField("second ollama cloud api key", text: $apiKey2)
-                    .textFieldStyle(.roundedBorder)
+                SecureField("second api key", text: $apiKey2).textFieldStyle(.roundedBorder)
             }
-            Text("Get a key at ollama.com. Stored in your macOS Keychain. When one key runs out of quota Guardian switches to the other — and back again when that one runs out.")
+            Text("Keys live in your macOS Keychain and are never sent to a local provider. When "
+                 + "one key runs out of quota the app switches to the other — and back when that "
+                 + "one runs out. A local provider needs no key at all.")
                 .font(.caption2).foregroundColor(LCARS.lilac.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                LcarsButton(title: "Test connection", color: LCARS.blue) {
+                    Task { await testProvider() }
+                }
+                Spacer()
+            }
+            if !providerResult.isEmpty {
+                Text(providerResult)
+                    .font(.caption2)
+                    .foregroundColor(providerOK ? LCARS.readout : LCARS.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Focus session defaults — what the start form is prefilled with. Every one of these can
+    /// still be changed per session.
+    private var focusSection: some View {
+        section("Focus session defaults") {
+            HStack {
+                Text("Check every").font(.caption).foregroundColor(LCARS.blue)
+                Picker("", selection: $prefs.focusInterval) {
+                    Text("30s").tag(30); Text("1m").tag(60); Text("2m").tag(120)
+                    Text("5m").tag(300); Text("10m").tag(600)
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 260)
+            }
+            HStack {
+                Text("Session length").font(.caption).foregroundColor(LCARS.blue)
+                Picker("", selection: $prefs.focusMinutes) {
+                    Text("25m").tag(25); Text("50m").tag(50); Text("90m").tag(90)
+                    Text("open").tag(0)
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 260)
+            }
+            Picker("Accountability", selection: $prefs.focusAccountability) {
+                ForEach(Accountability.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.radioGroup)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Standing notes for the classifier").font(.caption).foregroundColor(LCARS.blue)
+                TextEditor(text: $prefs.focusNotes)
+                    .font(.system(.caption, design: .monospaced))
+                    .frame(height: 54)
+                    .scrollContentBackground(.hidden)
+                    .background(LCARS.panel)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                Text("Added to every check, whatever the task. Good for facts the model can't "
+                     + "see: \"my course PDFs open in Safari\", \"Notion is where my notes live\".")
+                    .font(.caption2).foregroundColor(LCARS.lilac.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Toggle("Also enforce content rules (the original always-on classifier)",
+                   isOn: $prefs.contentRulesEnabled)
+                .font(.caption).foregroundColor(LCARS.readout)
+            Text("Off by default. When on, the content guidelines are checked outside focus "
+                 + "sessions too — which means screenshots are taken outside sessions.")
+                .font(.caption2).foregroundColor(LCARS.lilac.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Experimental: learn from \"false alarm\" presses", isOn: $prefs.learningEnabled)
+                .font(.caption).foregroundColor(LCARS.readout)
+            Text("Adds a False alarm button to block screens and applies what the learner "
+                 + "concludes. Status: \(LearnedPolicy.status()). See learner/README.md — "
+                 + "including how it stops you teaching it to leave you alone.")
+                .font(.caption2).foregroundColor(LCARS.lilac.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -151,6 +254,22 @@ struct SettingsView: View {
     }
 
     /// Commit both key fields. Editing a key resets the fail-over to start at the first one.
+    /// Ask the configured endpoint whether it is actually there, so a user finds out their local
+    /// Ollama isn't running *now* rather than 40 minutes into a session.
+    private func testProvider() async {
+        saveKeys()
+        providerResult = "Testing…"
+        providerOK = true
+        let cfg = prefs.providerConfig()
+        if let problem = await Providers.reachability(cfg) {
+            providerResult = "\u{2717}  " + problem
+            providerOK = false
+        } else {
+            providerResult = "\u{2713}  \(cfg.model) is reachable at \(cfg.baseUrl)"
+            providerOK = true
+        }
+    }
+
     private func saveKeys() {
         let changed = apiKey != prefs.ollamaApiKey || apiKey2 != prefs.ollamaApiKey2
         prefs.ollamaApiKey = apiKey

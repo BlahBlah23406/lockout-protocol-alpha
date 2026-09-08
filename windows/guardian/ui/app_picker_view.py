@@ -15,22 +15,33 @@ from ..models.prefs import Prefs
 
 class AppPickerWindow(tk.Toplevel):
 
-    def __init__(self, master):
+    def __init__(self, master, selection=None, on_done=None, title=None, subtitle=None,
+                 note=None):
+        """Two jobs, one window.
+
+        With no arguments it edits the saved default watchlist, exactly as before. Passed a
+        `selection` and an `on_done` callback it becomes a session-scoped picker: the focus start
+        screen uses it to tick one extra app for today without touching the defaults. Keeping this
+        as one widget rather than two means the emulator tagging, the rescan and the search only
+        exist once.
+        """
         super().__init__(master)
         self.prefs = Prefs.shared()
-        self.title("Guardian — Monitored Apps")
+        self.on_done = on_done
+        self.title(title or "Guardian — Monitored Apps")
         self.configure(bg=T.SPACE)
         self.geometry("580x680")
         self.attributes("-topmost", True)
 
-        self.selection = set(self.prefs.monitored_apps)
+        self.selection = set(self.prefs.monitored_apps if selection is None else selection)
         self.apps = []
         self.vars = {}
 
-        T.LcarsHeader(self, "Monitored Apps", "Select what to watch").pack(
-            fill="x", padx=16, pady=(14, 8))
+        T.LcarsHeader(self, title or "Monitored Apps",
+                      subtitle or "Select what to watch").pack(fill="x", padx=16, pady=(14, 8))
         self.summary = T.caption(
-            self, "Guardian only screenshots + checks an app while it is the foreground window.",
+            self, note or "Guardian only screenshots + checks an app while it is the foreground "
+                          "window — and only during a focus session.",
             wraplength=540)
         self.summary.pack(anchor="w", padx=16)
 
@@ -153,5 +164,8 @@ class AppPickerWindow(tk.Toplevel):
         self._render()
 
     def _done(self):
-        self.prefs.monitored_apps = self.selection
+        if self.on_done is not None:
+            self.on_done(set(self.selection))       # session-scoped: caller decides what to do
+        else:
+            self.prefs.monitored_apps = self.selection
         self.destroy()

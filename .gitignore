@@ -41,3 +41,29 @@ Thumbs.db
 .pytest_cache/
 .mypy_cache/
 *.log
+
+# --- Android ---
+# Gradle's local caches and the SDK path, which is per-machine.
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+*.apk
+*.aab
+# The debug keystore is generated per machine; a committed one would be a shared private key.
+*.jks
+*.keystore
+
+# --- iOS / macOS ---
+# The iOS project is GENERATED from ios/project.yml — see ios/README.md for why it isn't
+# committed. The macOS one IS committed, so it is not ignored here.
+ios/Lockout.xcodeproj/
+ios/*.xcworkspace/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# --- Learner ---
+# Simulated logs and compiled policies are outputs; regenerate them with
+# `python -m learner.cli simulate && python -m learner.cli learn`.
+learner/data/

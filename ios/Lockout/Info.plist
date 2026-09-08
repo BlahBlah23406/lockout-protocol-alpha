@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Lockout</string>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<!-- The widget taps into these. See LockoutWidget/FocusWidget.swift. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lockoutprotocol.lockout</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lockout</string>
+			</array>
+		</dict>
+	</array>
+	<!--
+	  App Transport Security: a local model server on the LAN is plain HTTP, because nobody runs
+	  Ollama behind a certificate on their own desk. The exception is narrowed to local networking
+	  only — an arbitrary http:// cloud endpoint is still refused, which is the right line: the
+	  request never leaves your Wi-Fi, so there is no transport to protect.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<!-- Asked for when the user first points the app at a model server on their own network. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>To reach a model server running on your own computer, so your task never leaves your network.</string>
+</dict>
+</plist>

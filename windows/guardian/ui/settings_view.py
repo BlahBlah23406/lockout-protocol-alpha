@@ -1,10 +1,13 @@
-"""Port of `UI/SettingsView.swift` — AI + alerts + blocking + tamper + passcode."""
+"""Settings: model provider, focus defaults, alerts, blocking, tamper resistance, passcode."""
 
 import threading
 import tkinter as tk
 
 from . import theme as T
 from .passcode_editor import PasscodeEditor
+from ..ai import providers
+from ..focus import learned
+from ..focus.session import ACC_LOCKED, ACC_SELF, DEFAULT_INTERVAL, clamp_interval
 from ..models.prefs import Prefs
 from ..push import pusher
 from ..service import persistence
@@ -20,11 +23,12 @@ class SettingsWindow(tk.Toplevel):
         self.geometry("620x720")
         self.attributes("-topmost", True)
 
-        T.LcarsHeader(self, "Settings", "AI · alerts · blocking").pack(
+        T.LcarsHeader(self, "Settings", "Model · alerts · blocking").pack(
             fill="x", padx=16, pady=(14, 10))
 
         body = self._scrollable()
         self._ai_section(body)
+        self._focus_section(body)
         self._alerts_section(body)
         self._blocking_section(body)
         self._tamper_section(body)
@@ -64,6 +68,8 @@ class SettingsWindow(tk.Toplevel):
         return box
 
     def _labeled_entry(self, parent, label, getter, setter, width=52):
+        """Returns the entry widget, so callers that change the underlying value from elsewhere
+        (the provider picker rewriting URL + model) can push the new value back into the box."""
         tk.Label(parent, text=label, bg=T.PANEL, fg=T.BLUE,
                  font=("Segoe UI", 8)).pack(anchor="w", pady=(4, 1))
         e = T.entry(parent, width=width)
@@ -85,13 +91,31 @@ class SettingsWindow(tk.Toplevel):
     # ---- sections ----------------------------------------------------------------------
 
     def _ai_section(self, parent):
-        box = self._section(parent, "AI (Ollama Cloud)")
-        self._labeled_entry(box, "Base URL",
-                            lambda: self.prefs.ollama_base_url,
-                            lambda v: setattr(self.prefs, "ollama_base_url", v))
-        self._labeled_entry(box, "Model",
-                            lambda: self.prefs.ollama_model,
-                            lambda v: setattr(self.prefs, "ollama_model", v))
+        """Provider picker.
+
+        The list is radio buttons rather than a dropdown on purpose: which model sees your screen
+        every two minutes is the single most consequential setting in this app, and it deserves to
+        be visible all at once with its trade-off written next to it — not hidden behind a click.
+        """
+        box = self._section(parent, "Model provider")
+
+        self.provider_var = tk.StringVar(value=self.prefs.provider_id)
+        for preset in providers.PRESETS:
+            tk.Radiobutton(box, text=preset["label"], value=preset["id"],
+                           variable=self.provider_var, command=self._on_provider_changed,
+                           bg=T.PANEL, fg=T.GOLD, selectcolor=T.SPACE, activebackground=T.PANEL,
+                           activeforeground=T.GOLD, font=("Segoe UI Semibold", 9), anchor="w",
+                           bd=0, highlightthickness=0).pack(fill="x", anchor="w", pady=(4, 0))
+            tk.Label(box, text=preset["hint"], bg=T.PANEL, fg=T.READOUT, font=("Segoe UI", 8),
+                     wraplength=460, justify="left").pack(anchor="w", padx=(22, 6))
+
+        self._e_base_url = self._labeled_entry(
+            box, "Base URL", lambda: self.prefs.provider_base_url,
+            lambda v: setattr(self.prefs, "provider_base_url", v))
+        self._e_model = self._labeled_entry(
+            box, "Model", lambda: self.prefs.provider_model,
+            lambda v: setattr(self.prefs, "provider_model", v))
+
         tk.Label(box, text="API key", bg=T.PANEL, fg=T.BLUE,
                  font=("Segoe UI", 8)).pack(anchor="w", pady=(6, 1))
         self.key1 = T.entry(box, show="•", width=52)
@@ -102,10 +126,92 @@ class SettingsWindow(tk.Toplevel):
         self.key2 = T.entry(box, show="•", width=52)
         self.key2.insert(0, self.prefs.ollama_api_key2)
         self.key2.pack(anchor="w", ipady=3)
-        T.caption(box, "Get a key at ollama.com. Stored encrypted with your Windows account "
-                       "(DPAPI). When one key runs out of quota Guardian switches to the other — "
-                       "and back again when that one runs out.",
+        T.caption(box, "Keys are stored encrypted with your Windows account (DPAPI) and are never "
+                       "sent to a local provider. When one key runs out of quota the app switches "
+                       "to the other — and back when that one runs out. A local provider needs no "
+                       "key at all.",
                   bg=T.PANEL).pack(anchor="w", pady=(6, 0))
+
+        row = tk.Frame(box, bg=T.PANEL)
+        row.pack(anchor="w", pady=(8, 0))
+        T.LcarsButton(row, "Test connection", self._test_provider, color=T.BLUE).pack(side="left")
+        self.provider_result = tk.Label(box, text="", bg=T.PANEL, fg=T.READOUT,
+                                        font=("Segoe UI", 8), wraplength=460, justify="left")
+        self.provider_result.pack(anchor="w", pady=(4, 0))
+
+    def _on_provider_changed(self):
+        """Switching preset rewrites URL + model, so the two entry boxes have to be redrawn."""
+        self.prefs.provider_id = self.provider_var.get()
+        self.provider_result.configure(text="Provider changed — press Test connection.", fg=T.READOUT)
+        for entry, value in ((self._e_base_url, self.prefs.provider_base_url),
+                             (self._e_model, self.prefs.provider_model)):
+            entry.delete(0, "end")
+            entry.insert(0, value)
+
+    def _test_provider(self):
+        """Ask the configured endpoint whether it is actually there. Runs off the UI thread — a
+        dead local server takes the full connect timeout to fail."""
+        self._save_keys()
+        cfg = self.prefs.provider_config()
+
+        def work():
+            problem = providers.reachability(cfg)
+            msg = f"✗  {problem}" if problem else f"✓  {cfg.model} is reachable at {cfg.base_url}"
+            self.after(0, lambda: self.provider_result.configure(
+                text=msg, fg=T.RED if problem else T.READOUT))
+
+        self.provider_result.configure(text="Testing…", fg=T.READOUT)
+        threading.Thread(target=work, name="guardian-provider-test", daemon=True).start()
+
+    def _focus_section(self, parent):
+        box = self._section(parent, "Focus session defaults")
+        T.caption(box, "What the Start screen is prefilled with. Every one of these can still be "
+                       "changed per session.", bg=T.PANEL).pack(anchor="w", pady=(0, 6))
+
+        self._labeled_entry(box, "Check every (seconds)",
+                            lambda: str(self.prefs.focus_interval),
+                            lambda v: setattr(self.prefs, "focus_interval", clamp_interval(
+                                v if v.strip().isdigit() else DEFAULT_INTERVAL)), width=12)
+        self._labeled_entry(box, "Session length (minutes, 0 = open-ended)",
+                            lambda: str(self.prefs.focus_minutes),
+                            lambda v: setattr(self.prefs, "focus_minutes",
+                                              int(v) if v.strip().isdigit() else 0), width=12)
+
+        self.acc_var = tk.StringVar(value=self.prefs.focus_accountability)
+        for value, label in ((ACC_SELF, "Self-managed by default"),
+                             (ACC_LOCKED, "Locked by default")):
+            tk.Radiobutton(box, text=label, value=value, variable=self.acc_var,
+                           command=lambda: setattr(self.prefs, "focus_accountability",
+                                                   self.acc_var.get()),
+                           bg=T.PANEL, fg=T.READOUT, selectcolor=T.SPACE, activebackground=T.PANEL,
+                           activeforeground=T.GOLD, font=("Segoe UI", 9), anchor="w", bd=0,
+                           highlightthickness=0).pack(fill="x", anchor="w")
+
+        tk.Label(box, text="Standing notes for the classifier", bg=T.PANEL, fg=T.BLUE,
+                 font=("Segoe UI", 8)).pack(anchor="w", pady=(8, 1))
+        self.notes_box = tk.Text(box, height=3, bg=T.SPACE, fg=T.READOUT, relief="flat", bd=0,
+                                 insertbackground=T.READOUT, font=("Consolas", 9), wrap="word",
+                                 highlightthickness=1, highlightbackground=T.BLUE)
+        self.notes_box.insert("1.0", self.prefs.focus_notes)
+        self.notes_box.pack(fill="x", pady=(0, 2))
+        T.caption(box, "Added to every check, whatever the task. Good for facts the model can't "
+                       "see: \"my course PDFs open in Edge\", \"Notion is where my notes live\".",
+                  bg=T.PANEL).pack(anchor="w")
+
+        self._toggle(box, "Also enforce content rules (the original always-on classifier)",
+                     lambda: self.prefs.content_rules_enabled,
+                     lambda v: setattr(self.prefs, "content_rules_enabled", v))
+        T.caption(box, "Off by default. When on, the content guidelines are checked outside focus "
+                       "sessions too — which means screenshots are taken outside sessions.",
+                  bg=T.PANEL).pack(anchor="w", pady=(0, 6))
+
+        self._toggle(box, "Experimental: learn from \"false alarm\" presses",
+                     lambda: self.prefs.learning_enabled,
+                     lambda v: setattr(self.prefs, "learning_enabled", v))
+        T.caption(box, f"Adds a False alarm button to block screens and applies what the learner "
+                       f"concludes. Status: {learned.status()}. See learner/README.md — including "
+                       f"how it stops you teaching it to leave you alone.",
+                  bg=T.PANEL).pack(anchor="w")
 
     def _alerts_section(self, parent):
         box = self._section(parent, "Alerts (ntfy push)")
@@ -199,4 +305,5 @@ class SettingsWindow(tk.Toplevel):
 
     def _done(self):
         self._save_keys()
+        self.prefs.focus_notes = self.notes_box.get("1.0", "end").strip()
         self.destroy()

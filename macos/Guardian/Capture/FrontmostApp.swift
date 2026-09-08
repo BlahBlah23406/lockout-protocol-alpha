@@ -20,6 +20,36 @@ enum FrontmostApp {
         return procPrefix + exe
     }
 
+    /// Title of the frontmost window of `bundleId`, or "" when unavailable.
+    ///
+    /// Used by the focus classifier, where the title is usually the single most informative signal
+    /// on the screen — "Integration by parts | Khan Academy" settles a verdict that the pixels
+    /// alone would leave ambiguous. It is passed to the model as text as well as being visible in
+    /// the image, because small vision models read a supplied string far more reliably than they
+    /// read a 12px title bar.
+    ///
+    /// `CGWindowListCopyWindowInfo` needs the Screen Recording grant to return window *names* (it
+    /// returns the rest of the metadata without it), which the app already requires for capture.
+    /// If the grant is missing this returns "" rather than failing the check — a missing title
+    /// costs a little accuracy, never a block.
+    static func windowTitle(for bundleId: String) -> String {
+        let pids = Set(running(bundleId).map { $0.processIdentifier })
+        guard !pids.isEmpty else { return "" }
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return ""
+        }
+        // The list is front-to-back, so the first match is the window actually being looked at.
+        for window in windows {
+            guard let pid = window[kCGWindowOwnerPID as String] as? pid_t, pids.contains(pid),
+                  let name = window[kCGWindowName as String] as? String, !name.isEmpty else {
+                continue
+            }
+            return String(name.prefix(300))
+        }
+        return ""
+    }
+
     /// Running apps matching an identifier from `bundleId` — by bundle id, or by executable name
     /// for the synthetic `proc:` ids.
     static func running(_ identifier: String) -> [NSRunningApplication] {

@@ -42,6 +42,12 @@
 		F652E85C36B37583C0FDEC31 /* PasscodeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E58CF1ACDFF9ADDDDFD6AED8 /* PasscodeEditor.swift */; };
 		F8C9ADC614E764FA5D4CA859 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BADDDBCE2798EE994239A20 /* Theme.swift */; };
 		FD4B803BD6625A515C2D6733 /* InstalledApps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03FF2DECDC6DA4CDCD1E61C7 /* InstalledApps.swift */; };
+		6B508365597F2487A6A0C7C6 /* Providers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 807C7A80594EAF144A8E67A8 /* Providers.swift */; };
+		E3A2EA2E135D613ED59EC995 /* FocusSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0413FC6B2B6E69D6D3763B /* FocusSession.swift */; };
+		03BB4054BEEAB6C04BFB2DB1 /* LearnedPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2A5B74E630B2B59728F3867 /* LearnedPolicy.swift */; };
+		5AFE97B32A99B96799822394 /* FocusPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5074B991218213A0AFA1CA3 /* FocusPrefs.swift */; };
+		F3B6670B2FEDCEFE05E43A39 /* Judgements.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1218D19E4EB1693E7F3AABC /* Judgements.swift */; };
+		9C6209B351395299A64CD3B1 /* FocusStartForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D1E9266402159C48CBCEEA /* FocusStartForm.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -107,6 +113,12 @@
 		F6F56F5146288780A644AD6B /* com.lockoutprotocol.guardian.keepalive.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = com.lockoutprotocol.guardian.keepalive.plist; sourceTree = "<group>"; };
 		F8F2ED6B566A2CA6E77FF197 /* MonitorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorService.swift; sourceTree = "<group>"; };
 		FE5229B5D1FB7420015BF8BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		807C7A80594EAF144A8E67A8 /* Providers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Providers.swift; sourceTree = "<group>"; };
+		3A0413FC6B2B6E69D6D3763B /* FocusSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSession.swift; sourceTree = "<group>"; };
+		A2A5B74E630B2B59728F3867 /* LearnedPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnedPolicy.swift; sourceTree = "<group>"; };
+		D5074B991218213A0AFA1CA3 /* FocusPrefs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusPrefs.swift; sourceTree = "<group>"; };
+		D1218D19E4EB1693E7F3AABC /* Judgements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Judgements.swift; sourceTree = "<group>"; };
+		E4D1E9266402159C48CBCEEA /* FocusStartForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusStartForm.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -136,6 +148,7 @@
 				AD05F7F7FD62F45A0B45091F /* GuardianApp.swift */,
 				036F31312273863A4BB5BAD0 /* Info.plist */,
 				C65C8F77C0A17B0A389E9BA1 /* AI */,
+				74F7C5CD7408F0115FA3C32C /* Focus */,
 				81D4012C9ED698D08C772F26 /* Capture */,
 				9EBF74486D13875EE56FA839 /* Models */,
 				30FAC56FCF949219CB8D508C /* Push */,
@@ -148,6 +161,7 @@
 		7D70B8C5D67D7F7E4832E76E /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				E4D1E9266402159C48CBCEEA /* FocusStartForm.swift */,
 				D3F9D41BC8A406ECD5ABEC44 /* AppPickerView.swift */,
 				8252A30FD590C2243A219D34 /* AppSelectList.swift */,
 				1A67820050ACA869C762FCDC /* BlockView.swift */,
@@ -194,6 +208,8 @@
 		9EBF74486D13875EE56FA839 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				D1218D19E4EB1693E7F3AABC /* Judgements.swift */,
+				D5074B991218213A0AFA1CA3 /* FocusPrefs.swift */,
 				41F355760B51F02F29CAD3E9 /* EventLog.swift */,
 				611FE4CEAA63EA3C43053290 /* Keychain.swift */,
 				A30B79C16F26C184F0B916D4 /* Prefs.swift */,
@@ -204,6 +220,7 @@
 		C65C8F77C0A17B0A389E9BA1 /* AI */ = {
 			isa = PBXGroup;
 			children = (
+				807C7A80594EAF144A8E67A8 /* Providers.swift */,
 				C33714A258020752D591E487 /* FrameQuality.swift */,
 				9D14A2610779DCF5F5592743 /* OllamaClient.swift */,
 			);
@@ -225,6 +242,15 @@
 				7EE39A1E5018B5A7D190768A /* GuardianTests.swift */,
 			);
 			path = GuardianTests;
+			sourceTree = "<group>";
+		};
+		74F7C5CD7408F0115FA3C32C /* Focus */ = {
+			isa = PBXGroup;
+			children = (
+				3A0413FC6B2B6E69D6D3763B /* FocusSession.swift */,
+				A2A5B74E630B2B59728F3867 /* LearnedPolicy.swift */,
+			);
+			path = Focus;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -347,6 +373,12 @@
 				EE29DEAC8D0BB0FA936356C1 /* LaunchAtLogin.swift in Sources */,
 				1DAE0E646532C97143B72C8B /* MenuBarView.swift in Sources */,
 				52D89236E247CACC9BB8A61E /* MonitorService.swift in Sources */,
+				6B508365597F2487A6A0C7C6 /* Providers.swift in Sources */,
+				E3A2EA2E135D613ED59EC995 /* FocusSession.swift in Sources */,
+				03BB4054BEEAB6C04BFB2DB1 /* LearnedPolicy.swift in Sources */,
+				5AFE97B32A99B96799822394 /* FocusPrefs.swift in Sources */,
+				F3B6670B2FEDCEFE05E43A39 /* Judgements.swift in Sources */,
+				9C6209B351395299A64CD3B1 /* FocusStartForm.swift in Sources */,
 				E910D5434230C618E648154F /* OllamaClient.swift in Sources */,
 				05F04199B2131CE876EC3EA6 /* Overrides.swift in Sources */,
 				F652E85C36B37583C0FDEC31 /* PasscodeEditor.swift in Sources */,

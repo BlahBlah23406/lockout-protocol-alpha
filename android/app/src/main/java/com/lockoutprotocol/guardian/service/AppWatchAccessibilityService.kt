@@ -130,6 +130,75 @@ class AppWatchAccessibilityService : AccessibilityService() {
         null
     }
 
+    /**
+     * A short text label for what is on screen right now — the closest thing Android has to a
+     * window title.
+     *
+     * The focus classifier leans on this heavily. On a phone the screenshot is small and the model
+     * is often a 7B, so a supplied string like "Integration by parts | Khan Academy" settles a
+     * verdict that the pixels alone would leave ambiguous. It is passed as text as well as being
+     * visible in the image, because a small vision model reads a given string far more reliably
+     * than it reads a 12sp toolbar.
+     *
+     * There is no single API for it, so this takes the first of: the window's own title (set by
+     * apps that bother), the browser URL bar if there is one (the single most informative node on
+     * a phone), then the longest short-ish text near the top of the tree. Returns "" rather than
+     * guessing badly — a missing title costs a little accuracy, never a block.
+     */
+    fun topScreenTitle(): String = try {
+        val top = windows
+            ?.filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+            ?.maxByOrNull { it.layer }
+        val declared = top?.title?.toString()?.trim().orEmpty()
+        if (declared.isNotEmpty()) {
+            declared.take(300)
+        } else {
+            val root = top?.root
+            (browserUrl(root) ?: headerText(root)).orEmpty().take(300)
+        }
+    } catch (e: Exception) {
+        ""
+    }
+
+    /**
+     * The URL from a browser's address bar, when the foreground app is a browser. Chrome and most
+     * WebView-based browsers expose it as an editable node, which is what makes it findable
+     * without knowing anything about the specific browser.
+     */
+    private fun browserUrl(root: android.view.accessibility.AccessibilityNodeInfo?): String? {
+        if (root == null) return null
+        for (id in URL_BAR_IDS) {
+            val nodes = runCatching { root.findAccessibilityNodeInfosByViewId(id) }
+                .getOrNull().orEmpty()
+            val text = nodes.firstNotNullOfOrNull { it.text?.toString()?.trim()?.ifEmpty { null } }
+            if (text != null) return text
+        }
+        return null
+    }
+
+    /**
+     * Fallback: the most title-like text in the top of the view tree. Bounded to a shallow walk —
+     * this runs on every check, and a full traversal of a busy app's tree is not free.
+     */
+    private fun headerText(root: android.view.accessibility.AccessibilityNodeInfo?): String? {
+        if (root == null) return null
+        var best: String? = null
+        fun walk(node: android.view.accessibility.AccessibilityNodeInfo?, depth: Int) {
+            if (node == null || depth > HEADER_MAX_DEPTH) return
+            val text = node.text?.toString()?.trim()
+            // A title is short and non-empty; body copy and button labels are excluded by length
+            // and by preferring the longest candidate that still looks like a heading.
+            if (!text.isNullOrEmpty() && text.length in 3..80) {
+                if ((best?.length ?: 0) < text.length) best = text
+            }
+            for (i in 0 until minOf(node.childCount, HEADER_MAX_CHILDREN)) {
+                walk(runCatching { node.getChild(i) }.getOrNull(), depth + 1)
+            }
+        }
+        walk(root, 0)
+        return best
+    }
+
     /** Used by the block logic to force the offending app off-screen. */
     fun goHome() = performGlobalAction(GLOBAL_ACTION_HOME)
 
@@ -191,5 +260,20 @@ class AppWatchAccessibilityService : AccessibilityService() {
         private const val TAG = "AppWatchA11y"
         private const val MAX_WIDTH = 720
         @Volatile var instance: AppWatchAccessibilityService? = null
+
+        /** Address-bar view ids used by the common Android browsers. */
+        private val URL_BAR_IDS = listOf(
+            "com.android.chrome:id/url_bar",
+            "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
+            "com.brave.browser:id/url_bar",
+            "com.microsoft.emmx:id/url_bar",
+            "com.opera.browser:id/url_field",
+            "com.duckduckgo.mobile.android:id/omnibarTextInput",
+        )
+
+        // Bounds on the fallback title walk. This runs on every check, and a full traversal of a
+        // busy app's node tree is not free — on a mid-range phone it is measurable battery.
+        private const val HEADER_MAX_DEPTH = 4
+        private const val HEADER_MAX_CHILDREN = 12
     }
 }

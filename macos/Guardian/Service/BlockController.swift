@@ -21,6 +21,12 @@ final class BlockController: ObservableObject {
         let bundleId: String
         let appName: String
         let reason: String
+        /// nil for a content-rules block. Decides which accountability level the overlay is
+        /// shown at, so the level is read from the session that was actually started rather than
+        /// from a global setting that could have drifted since.
+        var session: FocusSession?
+        /// Ties a later "false alarm" press back to the exact check that caused this block.
+        var judgementId: String = ""
     }
 
     @Published private(set) var current: Info?
@@ -28,9 +34,11 @@ final class BlockController: ObservableObject {
 
     var isBlocking: Bool { current != nil }
 
-    func show(bundleId: String, appName: String, reason: String) {
+    func show(bundleId: String, appName: String, reason: String,
+              session: FocusSession? = nil, judgementId: String = "") {
         guard current == nil else { return }   // one block at a time
-        let info = Info(bundleId: bundleId, appName: appName, reason: reason)
+        let info = Info(bundleId: bundleId, appName: appName, reason: reason,
+                        session: session, judgementId: judgementId)
         current = info
 
         // Make sure Guardian is active so the overlay is frontmost and can take keyboard focus.
@@ -46,9 +54,10 @@ final class BlockController: ObservableObject {
             w.hasShadow = false
             w.isReleasedWhenClosed = false
             let view = BlockView(
-                appName: appName, reason: reason,
+                appName: appName, reason: reason, session: session,
                 onOverride: { [weak self] in self?.finishOverride() },
-                onQuit: { [weak self] in self?.finishQuit() })
+                onQuit: { [weak self] in self?.finishQuit() },
+                onFalseAlarm: { [weak self] in self?.markFalseAlarm() })
             w.contentView = NSHostingView(rootView: view)
             w.setFrame(screen.frame, display: true)
             w.makeKeyAndOrderFront(nil)
@@ -57,11 +66,45 @@ final class BlockController: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// "Override" — keep using the app. Grants a 5-minute override and tears down the overlay.
-    /// Requires the passcode when one is set (enforced in BlockView).
+    /// "Override" — keep using the app. Grants a 5-minute reprieve and tears down the overlay.
+    /// In a locked session the passcode was already checked in `BlockView`.
+    ///
+    /// The override also pauses the *session* briefly, not just this app. Being re-challenged 90
+    /// seconds after you deliberately said "yes, I need this" is how a monitor teaches people to
+    /// ignore it, and an override you paid for with a passcode should buy a little peace.
     func finishOverride() {
-        if let info = current { Overrides.grant(info.bundleId) }
+        let info = current
+        if let info { Overrides.grant(info.bundleId) }
+        if let session = info?.session {
+            let store = SessionStore.shared
+            store.recordOverride()
+            store.pause(seconds: min(300, max(Double(session.intervalSeconds) * 2, 120)))
+            if session.accountability.alertsPartner {
+                alertOverride(appName: info?.appName ?? "an app", session: session)
+            }
+        }
         teardown()
+    }
+
+    /// Experimental: record that this block was wrong, for the learner to pick up later.
+    func markFalseAlarm() {
+        guard let info = current, !info.judgementId.isEmpty else { return }
+        Judgements.addFeedback(info.judgementId, .falseAlarm)
+    }
+
+    /// A locked session that gets overridden is exactly the event a partner signed up to hear
+    /// about — the block itself is only half the story.
+    private func alertOverride(appName: String, session: FocusSession) {
+        let prefs = Prefs.shared
+        let cfg = Pusher.Config(enabled: prefs.pushEnabled, server: prefs.ntfyServer,
+                                topic: prefs.ntfyTopic)
+        let count = SessionStore.shared.current?.overrideCount ?? session.overrideCount
+        Task {
+            _ = await Pusher.send(cfg, title: "[Lockout] Override used in \(appName)",
+                                  message: "Task: \(session.task)\n\nThe block on \(appName) was "
+                                         + "overridden with the passcode. That is override "
+                                         + "#\(count) this session.")
+        }
     }
 
     /// "Dismiss" — the no-code, compliant exit: quit the offending app, then tear down the overlay.

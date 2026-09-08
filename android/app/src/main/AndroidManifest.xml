@@ -61,6 +61,22 @@
             android:name=".ui.SetupActivity"
             android:exported="false" />
 
+        <!--
+          The focus start screen. Exported because the home-screen widget launches it, and a
+          widget's PendingIntent is delivered by the launcher (a different process). It takes no
+          data from the caller beyond a boolean hint, and starting a session still needs a tap on
+          this screen, so an exported entry point here is not a bypass.
+        -->
+        <activity
+            android:name=".ui.FocusStartActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:label="Start a focus session" />
+
+        <activity
+            android:name=".ui.AppPickerActivity"
+            android:exported="false" />
+
         <!-- Oath gate raised over the Settings app by the accessibility self-guard. -->
         <activity
             android:name=".ui.PledgeActivity"
@@ -110,6 +126,20 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
                 <action android:name="android.app.action.DEVICE_ADMIN_DISABLE_REQUESTED" />
             </intent-filter>
+        </receiver>
+
+        <!-- Home-screen widget: start a session, or see the one that's running. -->
+        <receiver
+            android:name=".widget.FocusWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <!-- Our own repaint broadcast, sent when a session starts, ends, or ticks. -->
+                <action android:name="com.lockoutprotocol.guardian.WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/focus_widget_info" />
         </receiver>
 
         <receiver

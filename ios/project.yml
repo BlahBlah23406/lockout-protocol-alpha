@@ -1,0 +1,129 @@
+# XcodeGen spec. `xcodegen generate` in this folder produces Lockout.xcodeproj.
+#
+# The project file is NOT committed, unlike the macOS one. Four targets that must agree about an
+# App Group, a Keychain access group, and three separate copies of the family-controls entitlement
+# is exactly the configuration that rots when hand-edited, and every one of those mistakes fails
+# silently — the app runs and simply doesn't shield anything. Generating it from this file means
+# the wiring is reviewable as text.
+name: Lockout
+options:
+  bundleIdPrefix: com.lockoutprotocol
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+# One place for the identifiers that must match across all four targets. Getting any of these out
+# of step is the top cause of "sessions start but nothing is shielded".
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    # Set your own team here, or set it once in Xcode's signing tab. The family-controls
+    # entitlement is granted per Apple Developer account, so this cannot be a shared value.
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+targets:
+
+  # ---- The app -----------------------------------------------------------------------------
+  Lockout:
+    type: application
+    platform: iOS
+    sources:
+      - path: Lockout
+    dependencies:
+      - target: LockoutShieldConfig
+      - target: LockoutShieldAction
+      - target: LockoutMonitor
+      - target: LockoutWidget
+      - sdk: FamilyControls.framework
+      - sdk: ManagedSettings.framework
+      - sdk: DeviceActivity.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.lockout
+        INFOPLIST_FILE: Lockout/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Lockout/Lockout.entitlements
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+  # ---- Shield appearance -------------------------------------------------------------------
+  # An app extension bundle declares exactly one extension point, so the shield's appearance and
+  # its buttons are two targets. Both are launched cold by iOS with a few megabytes to spend, so
+  # neither gets Providers.swift or Prefs.swift: an extension must not make network calls, and has
+  # no business reading settings it can't act on.
+  LockoutShieldConfig:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LockoutShieldConfig
+      - path: Lockout/Focus/FocusSession.swift
+    dependencies:
+      - sdk: ManagedSettings.framework
+      - sdk: ManagedSettingsUI.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.lockout.shieldconfig
+        INFOPLIST_FILE: LockoutShieldConfig/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LockoutShieldConfig/LockoutShieldConfig.entitlements
+
+  # ---- Shield buttons ----------------------------------------------------------------------
+  # This one DOES get Pusher + Keychain: a locked session's blocked unshield attempt is exactly
+  # the thing the accountability partner signed up to hear about.
+  LockoutShieldAction:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LockoutShieldAction
+      - path: Lockout/Focus/FocusSession.swift
+      - path: Lockout/Models/Keychain.swift
+      - path: Lockout/Push/Pusher.swift
+    dependencies:
+      - sdk: ManagedSettings.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.lockout.shieldaction
+        INFOPLIST_FILE: LockoutShieldAction/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LockoutShieldAction/LockoutShieldAction.entitlements
+
+  # ---- Schedule monitor --------------------------------------------------------------------
+  # Lifts the shield when the session's time is up, even if the app is never opened again.
+  LockoutMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LockoutMonitor
+      - path: Lockout/Focus/FocusSession.swift
+    dependencies:
+      - sdk: DeviceActivity.framework
+      - sdk: ManagedSettings.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.lockout.monitor
+        INFOPLIST_FILE: LockoutMonitor/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LockoutMonitor/LockoutMonitor.entitlements
+
+  # ---- Widget ------------------------------------------------------------------------------
+  LockoutWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LockoutWidget
+      - path: Lockout/Focus/FocusSession.swift
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.lockoutprotocol.lockout.widget
+        INFOPLIST_FILE: LockoutWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: LockoutWidget/LockoutWidget.entitlements
+
+schemes:
+  Lockout:
+    build:
+      targets:
+        Lockout: all
+    run:
+      config: Debug

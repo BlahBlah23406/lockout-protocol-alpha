@@ -27,6 +27,12 @@ object Lcars {
     const val PANEL = 0xFF14182B.toInt()
     const val INK = 0xFFE8ECF8.toInt()
 
+    /**
+     * Mono readout text — the green-cyan the macOS and Windows ports already use for status
+     * panels. Added here so the three apps share one palette rather than three near-misses.
+     */
+    const val READOUT = 0xFF9AE6C9.toInt()
+
     val PALETTE = intArrayOf(ORANGE, BLUE, LILAC, GOLD)
     private val condensed: Typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
 

@@ -217,6 +217,39 @@ class Prefs private constructor(private val sp: SharedPreferences) {
     var guardSelf: Boolean get() = sp.getBoolean(K_GUARD_SELF, true)
         set(v) = sp.edit().putBoolean(K_GUARD_SELF, v).apply()
 
+    // ---- Generic accessors for extension properties ------------------------------------
+    //
+    // `FocusPrefs.kt` adds the focus-mode settings as extension properties. Kotlin extensions
+    // can't reach a private field, so these four pairs are the narrow, deliberate opening: the
+    // focus feature reads and writes the same encrypted file without `Prefs.kt` having to grow a
+    // property per setting. Kept internal so nothing outside the app can poke arbitrary keys.
+
+    internal fun getString(key: String, default: String): String =
+        sp.getString(key, default) ?: default
+
+    internal fun putString(key: String, value: String) {
+        sp.edit().putString(key, value).apply()
+    }
+
+    internal fun getInt(key: String, default: Int): Int = sp.getInt(key, default)
+
+    internal fun putInt(key: String, value: Int) {
+        sp.edit().putInt(key, value).apply()
+    }
+
+    internal fun getBool(key: String, default: Boolean): Boolean = sp.getBoolean(key, default)
+
+    internal fun putBool(key: String, value: Boolean) {
+        sp.edit().putBoolean(key, value).apply()
+    }
+
+    internal fun getStrings(key: String): Set<String> =
+        sp.getStringSet(key, emptySet()) ?: emptySet()
+
+    internal fun putStrings(key: String, value: Set<String>) {
+        sp.edit().putStringSet(key, value).apply()
+    }
+
     companion object {
         private const val FILE = "guardian_secure_prefs"
         private const val K_PIN = "pin_hash"

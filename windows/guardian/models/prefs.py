@@ -40,6 +40,17 @@ class K:
     keep_alive = "keep_alive_agent"
     cov_peak = "covenant_guidelines_peak_len"
     cov_armed = "covenant_ever_armed"
+    # --- focus mode ---
+    prov_id = "provider_id"
+    prov_url = "provider_base_url"
+    prov_model = "provider_model"
+    focus_interval = "focus_default_interval"
+    focus_acc = "focus_default_accountability"
+    focus_minutes = "focus_default_minutes"
+    focus_task = "focus_last_task"
+    focus_notes = "focus_extra_notes"
+    content_rules = "content_rules_enabled"
+    learning = "learning_enabled"
 
 
 # Vision-capable Gemma 4 hosted on Ollama Cloud (multimodal, 256K context).
@@ -242,13 +253,25 @@ class Prefs:
 
     @property
     def ollama_api_key(self) -> str:
+        """The primary API key for whichever provider is selected.
+
+        Deliberately has no built-in fallback key. An earlier revision shipped a real Ollama Cloud
+        key as a literal in this file so first-run "just worked"; that key was in a public repo,
+        which means it was public. If nothing is configured we return "" and the UI says so —
+        an empty key produces a clear "add your API key" message, which is a far better first run
+        than a shared key that silently runs out of quota for everyone at once.
+        """
         k = SecretStore.get(K.ollama_key)
-        if not k:
-            import os
-            env_key = os.environ.get("OLLAMA_CLOUD_KEY", "").strip()
-            k = env_key if env_key else "670dd2703b9a4b7381a6cefcc1680982.zsABW4wGCT9eBJUYZL5iMUUJ"
-            SecretStore.set(K.ollama_key, k)
-        return k
+        if k:
+            return k
+        import os
+        # Convenience for developers and for scripted setup, nothing more.
+        for var in ("LOCKOUT_API_KEY", "OLLAMA_CLOUD_KEY", "OLLAMA_API_KEY"):
+            env_key = os.environ.get(var, "").strip()
+            if env_key:
+                SecretStore.set(K.ollama_key, env_key)
+                return env_key
+        return ""
 
     @ollama_api_key.setter
     def ollama_api_key(self, value):
@@ -296,6 +319,139 @@ class Prefs:
             return
         if self.active_api_key_slot != slot:
             self.active_api_key_slot = slot
+
+    # ---- model provider (focus mode) ----------------------------------------------------
+    #
+    # Stored as a preset id plus optional overrides, rather than as a free-form blob. The preset
+    # gives a first-run user a working default in one click; the overrides let a power user point
+    # at a gateway we have never heard of. `provider_config()` resolves the two into the snapshot
+    # the network layer actually consumes.
+
+    @property
+    def provider_id(self) -> str:
+        return self._get(K.prov_id, "ollama-cloud")
+
+    @provider_id.setter
+    def provider_id(self, value):
+        from ..ai import providers
+        preset = providers.PRESETS_BY_ID.get(value)
+        if preset is None:
+            return
+        with self._lock:
+            self._d[K.prov_id] = value
+            # Switching provider rewrites the URL/model to that preset's defaults. Keeping the
+            # old model name when you move from Ollama to Anthropic just produces a 404 later.
+            self._d[K.prov_url] = preset["base_url"]
+            self._d[K.prov_model] = preset["model"]
+            self._save()
+        self._notify()
+
+    @property
+    def provider_base_url(self) -> str:
+        from ..ai import providers
+        preset = providers.PRESETS_BY_ID.get(self.provider_id, {})
+        return self._get(K.prov_url, preset.get("base_url", ""))
+
+    @provider_base_url.setter
+    def provider_base_url(self, value):
+        self._set(K.prov_url, (value or "").strip())
+
+    @property
+    def provider_model(self) -> str:
+        from ..ai import providers
+        preset = providers.PRESETS_BY_ID.get(self.provider_id, {})
+        return self._get(K.prov_model, preset.get("model", ""))
+
+    @provider_model.setter
+    def provider_model(self, value):
+        self._set(K.prov_model, (value or "").strip())
+
+    @property
+    def provider_needs_key(self) -> bool:
+        from ..ai import providers
+        return bool(providers.PRESETS_BY_ID.get(self.provider_id, {}).get("needs_key"))
+
+    def provider_config(self):
+        """Snapshot for the monitor thread. Keys are omitted entirely for local providers so we
+        never accidentally send a cloud key to `127.0.0.1`."""
+        from ..ai import providers
+        preset = providers.PRESETS_BY_ID.get(self.provider_id, providers.PRESETS[0])
+        keys = self.api_keys if preset.get("needs_key") or self.provider_id == "custom" else []
+        return providers.ProviderConfig(kind=preset["kind"], base_url=self.provider_base_url,
+                                        model=self.provider_model, api_keys=keys,
+                                        label=preset["label"])
+
+    # ---- focus session defaults ----------------------------------------------------------
+
+    @property
+    def focus_interval(self) -> int:
+        from ..focus.session import DEFAULT_INTERVAL, clamp_interval
+        return clamp_interval(self._get(K.focus_interval, DEFAULT_INTERVAL))
+
+    @focus_interval.setter
+    def focus_interval(self, value):
+        from ..focus.session import clamp_interval
+        self._set(K.focus_interval, clamp_interval(value))
+
+    @property
+    def focus_accountability(self) -> str:
+        from ..focus.session import ACC_SELF, ACCOUNTABILITY_LEVELS
+        v = self._get(K.focus_acc, ACC_SELF)
+        return v if v in ACCOUNTABILITY_LEVELS else ACC_SELF
+
+    @focus_accountability.setter
+    def focus_accountability(self, value):
+        from ..focus.session import ACCOUNTABILITY_LEVELS
+        if value in ACCOUNTABILITY_LEVELS:
+            self._set(K.focus_acc, value)
+
+    @property
+    def focus_minutes(self) -> int:
+        return max(int(self._get(K.focus_minutes, 60) or 0), 0)
+
+    @focus_minutes.setter
+    def focus_minutes(self, value):
+        self._set(K.focus_minutes, max(int(value or 0), 0))
+
+    @property
+    def last_task(self) -> str:
+        """Prefilled into the start box. Most sessions are a continuation of the last one."""
+        return self._get(K.focus_task, "")
+
+    @last_task.setter
+    def last_task(self, value):
+        self._set(K.focus_task, (value or "").strip()[:400])
+
+    @property
+    def focus_notes(self) -> str:
+        """Standing notes appended to every check — "my textbook PDFs open in Edge", that sort of
+        thing. Hand-written; the learner writes to a separate file and never edits this."""
+        return self._get(K.focus_notes, "")
+
+    @focus_notes.setter
+    def focus_notes(self, value):
+        self._set(K.focus_notes, (value or "").strip()[:1500])
+
+    @property
+    def content_rules_enabled(self) -> bool:
+        """The original content-safety classifier, kept as an opt-in extra layer. Off by default:
+        this is a focus tool now, and running both classifiers doubles the cost of every check."""
+        return bool(self._get(K.content_rules, False))
+
+    @content_rules_enabled.setter
+    def content_rules_enabled(self, value):
+        self._set(K.content_rules, bool(value))
+
+    @property
+    def learning_enabled(self) -> bool:
+        """Experimental: capture "that was a false alarm" feedback and apply the learned policy.
+        Off by default because a self-control tool that learns from you can be taught to stop
+        stopping you — see `learner/README.md` for the anti-gaming design."""
+        return bool(self._get(K.learning, False))
+
+    @learning_enabled.setter
+    def learning_enabled(self, value):
+        self._set(K.learning, bool(value))
 
     # ---- access / override passcode (SHA-256 hash in the secret store) ------------------
 
