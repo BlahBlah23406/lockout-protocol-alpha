@@ -4,6 +4,7 @@ Mirrors `GuardianTests.swift`: tests FrameQuality heuristics, Ollama verdict par
 emulator catalog discovery, DPAPI secrets store, and Ollama Cloud live classification.
 """
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -84,11 +85,43 @@ class TestGuardian(unittest.TestCase):
         SecretStore.delete("test_key")
         self.assertIsNone(SecretStore.get("test_key"))
 
-    def test_ollama_api_key_loaded(self):
-        p = Prefs.shared()
-        key = p.ollama_api_key
-        self.assertTrue(len(key) > 0, "Ollama API key must be initialized")
-        self.assertIn("670dd2703b9a4b7381a6cefcc1680982", key)
+    def test_no_api_key_is_baked_into_the_source(self):
+        """There must be NO fallback key baked into the app.
+
+        This test used to assert the opposite — that a specific key literal was present — because
+        an earlier revision shipped a real Ollama Cloud key in `prefs.py` so that first run "just
+        worked". That key was in a public repo, which means it was public. It is gone, and this
+        test guards against it, or anything like it, coming back.
+
+        It reads the SOURCE rather than the resolved value on purpose. A machine that ran the old
+        build still has that key in its DPAPI store, and whether a user has a key configured is
+        their business — the defect being guarded is a credential in the repository.
+        """
+        source = (WINDOWS_DIR / "guardian" / "models" / "prefs.py").read_text(encoding="utf-8")
+
+        self.assertNotIn("670dd2703b9a4b7381a6cefcc", source,
+                         "the retired hardcoded API key is back in prefs.py")
+
+        # A generic shape check, so the next hardcoded credential is caught too rather than only
+        # this one. Ollama keys are 32 hex chars, a dot, then 24 base62 — distinctive enough to
+        # match without flagging ordinary strings.
+        self.assertIsNone(re.search(r"[0-9a-f]{32}\.[A-Za-z0-9]{20,}", source),
+                          "something shaped like an API key is hardcoded in prefs.py")
+
+    def test_api_key_defaults_to_empty(self):
+        """With nothing configured, reading the key yields "" rather than a built-in value.
+
+        Skipped on a machine that has a key stored or in the environment, because there is nothing
+        to assert there — the point is only that the app never invents one.
+        """
+        import os
+        from guardian.models.prefs import K
+
+        if SecretStore.get(K.ollama_key) or any(
+                os.environ.get(v, "").strip()
+                for v in ("LOCKOUT_API_KEY", "OLLAMA_CLOUD_KEY", "OLLAMA_API_KEY")):
+            self.skipTest("an API key is configured on this machine")
+        self.assertEqual(Prefs.shared().ollama_api_key, "")
 
     # ---- Ollama Cloud Vision Integration ----
 
