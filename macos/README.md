@@ -1,10 +1,32 @@
 # Guardian for macOS
 
-The macOS half of [Lockout Protocol](../README.md). Screenshots the apps you choose, asks an Ollama
-Cloud vision model whether the screen breaks your rules, and on a violation raises a full-screen
-block and pushes your accountability partner.
+The macOS half of [Lockout Protocol](../README.md). You declare a task, it screenshots whichever
+watched app is frontmost, asks a model you chose whether that screen is part of that task, and
+raises a full-screen block when it clearly isn't. Start and stop it from the menu-bar item.
+
+The original content-rules mode is still here, opt-in and off by default, under Settings.
 
 > ⚠️ Run this only on a Mac **you own**, or where the person using it has knowingly agreed.
+
+> **Status: written, not yet built.** The focus-mode Swift was ported from the tested Windows
+> implementation and is structurally checked (`python tools/check_macos.py` and
+> `tools/check_xcodeproj.py` from the repo root), but it has not been through a compiler. Treat
+> the first `xcodebuild` as the real test — and see the `macos` job in
+> `.github/workflows/build.yml`, which runs exactly that on every push.
+
+## Requirements
+
+**Xcode 16 or newer.** `Guardian.xcodeproj` is objectVersion 77; Xcode 15.4 refuses to open it with
+*"a future Xcode project file format"*. If you would rather not upgrade, regenerate the project from
+the spec instead — it is the source of truth anyway:
+
+```sh
+brew install xcodegen
+cd macos && xcodegen generate
+```
+
+New Swift files are picked up automatically by `xcodegen` (the spec globs directories), but the
+committed `.xcodeproj` lists files explicitly, so if you add one by hand it must be added there too.
 
 ## How it works
 

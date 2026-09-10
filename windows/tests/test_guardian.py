@@ -4,6 +4,7 @@ Mirrors `GuardianTests.swift`: tests FrameQuality heuristics, Ollama verdict par
 emulator catalog discovery, DPAPI secrets store, and Ollama Cloud live classification.
 """
 
+import os
 import re
 import sys
 import unittest
@@ -114,7 +115,6 @@ class TestGuardian(unittest.TestCase):
         Skipped on a machine that has a key stored or in the environment, because there is nothing
         to assert there — the point is only that the app never invents one.
         """
-        import os
         from guardian.models.prefs import K
 
         if SecretStore.get(K.ollama_key) or any(
@@ -123,9 +123,20 @@ class TestGuardian(unittest.TestCase):
             self.skipTest("an API key is configured on this machine")
         self.assertEqual(Prefs.shared().ollama_api_key, "")
 
-    # ---- Ollama Cloud Vision Integration ----
+    # ---- Live integration (opt-in) ----
 
+    @unittest.skipUnless(os.environ.get("LOCKOUT_LIVE_TESTS", "").strip(),
+                         "live test: set LOCKOUT_LIVE_TESTS=1 and configure an API key")
     def test_ollama_cloud_evaluation(self):
+        """Captures the real screen and sends it to the configured provider.
+
+        Opt-in, because it needs three things a test suite has no right to assume: a display, a
+        network, and someone's paid API credit. It was previously unconditional, which meant the
+        whole suite failed on CI with "AI quota exhausted" — a red build that says nothing about
+        the code. The offline tests cover the parse, retry, fail-over and never-block behaviour;
+        this one only answers "does a real round-trip work end to end", which is worth having but
+        only when you ask for it.
+        """
         p = Prefs.shared()
         img = screen_capturer.capture()
         self.assertIsNotNone(img, "Screen capture failed")
