@@ -3,24 +3,17 @@ import CoreGraphics
 import Foundation
 import UserNotifications
 
-/// The monitoring loop. Two modes meet here:
+/// The monitoring loop.
 ///
-/// **Focus mode** (the product). A session is running — the user declared a task like "revising
-/// integration by parts" — so every `intervalSeconds` we capture one frame of whichever watched app
-/// is frontmost and ask the model whether that screen belongs to that task.
+/// Focus mode runs while a session is active: every `intervalSeconds` it captures one frame of
+/// whichever watched app is frontmost and asks the model whether that screen belongs to the
+/// declared task. Content rules are the original always-on classifier, opt-in and off by default.
 ///
-/// **Content rules** (opt-in, off by default). The original behaviour: an always-on classifier
-/// checking screens against written content guidelines. Kept because it works, but it is no longer
-/// what the app is for.
+/// When neither is active, nothing is captured at all.
 ///
-/// The most important structural change: **when no session is running, nothing is captured at
-/// all** — not captured and discarded, never taken. A monitor that only looks during a window you
-/// opened yourself is a different thing to live with, and that difference is worth the extra branch.
-///
-/// Cadence follows the session's interval rather than how fast the model answers. The old loop
-/// fired 1.2s after each reply, which is right for content safety (one frame of the wrong thing
-/// matters) and wrong here: it would burn hundreds of calls an hour on a question whose answer
-/// changes over minutes.
+/// Cadence follows the session's interval rather than how fast the model answers; the old
+/// response-driven loop would burn hundreds of calls an hour on a question whose answer changes
+/// over minutes.
 @MainActor
 final class MonitorService: ObservableObject {
 
@@ -38,16 +31,15 @@ final class MonitorService: ObservableObject {
     /// Per-bundle throttle so persistently-unverifiable apps don't spam the alert.
     private var lastAlertAt: [String: Date] = [:]
     private var screenWasVisible = true
-    /// When the next focus check is due, per app. Keyed by app so switching apps checks the new one
-    /// promptly instead of inheriting the previous app's countdown — the moment you switch into a
-    /// distraction is exactly the moment worth looking.
+    /// When the next check is due, per app. Keyed by app so switching into a distraction is
+    /// checked promptly rather than inheriting the previous app's countdown.
     private var nextCheckAt: [String: Date] = [:]
 
     // Content-rules cadence (unchanged from the original app).
     private let minGap: TimeInterval = 1.2
     private let idlePoll: TimeInterval = 2.5
-    /// How often we re-check *which* app is frontmost while not on a watched app. Cheap — one
-    /// AppKit call, no capture, no inference — so it can be brisk.
+    /// How often to re-check which app is frontmost while not on a watched app. Cheap: one
+    /// AppKit call, no capture, no inference.
     private let focusIdlePoll: TimeInterval = 3.0
     /// After a transient backend failure, retry sooner than a full interval but not instantly.
     private let transientRetry: TimeInterval = 20
@@ -91,8 +83,8 @@ final class MonitorService: ObservableObject {
         // A block overlay is up — we already cover the screen; don't capture or evaluate.
         if BlockController.shared.isBlocking { return idlePoll }
 
-        // Display asleep / locked / screen saver: nobody is looking at anything, and capturing
-        // would hand us a black frame that reads as "can't see" and alerts. Pause instead.
+        // Nobody is looking at anything, and capturing would hand us a black frame that reads as
+        // "can't see" and alerts.
         guard ScreenState.isVisible else {
             if screenWasVisible {
                 screenWasVisible = false
@@ -114,7 +106,7 @@ final class MonitorService: ObservableObject {
             return await contentTick() ? minGap : idlePoll
         }
 
-        // Nothing to do: no session, content rules off. Explicitly *not* capturing anything.
+        // No session, content rules off: explicitly not capturing anything.
         status = "No focus session — not watching"
         return idlePoll
     }
@@ -132,8 +124,6 @@ final class MonitorService: ObservableObject {
 
         let watchlist = session.watchlist(defaults: prefs.monitoredApps)
         guard let fg = FrontmostApp.bundleId, !fg.isEmpty, watchlist.contains(fg) else {
-            // Not a watched app. In focus mode this is the normal, uninteresting case — you are in
-            // your editor, or your terminal, or anything you never asked to be policed.
             status = idleStatus(session)
             return focusIdlePoll
         }
@@ -173,7 +163,7 @@ final class MonitorService: ObservableObject {
         })
         let ms = Int(Date().timeIntervalSince(started) * 1000)
 
-        // Transient backend trouble is never evidence about the user: log, retry sooner, no block.
+        // Transient backend trouble is never evidence about the user.
         if verdict.transient {
             log.add("⏳ \(name) — AI unavailable (\(verdict.reason)) — skipped")
             status = "AI unavailable — retrying"
@@ -221,9 +211,7 @@ final class MonitorService: ObservableObject {
         return "Focus: \(session.task.prefix(32)) (\(Int(remaining) / 60)m left)"
     }
 
-    /// Standing notes handed to the classifier: the user's own, plus anything the experimental
-    /// learner has concluded. Both capped hard — a prompt suffix that grows without bound
-    /// eventually costs more than the screenshot does.
+    /// The user's standing notes plus anything the learner concluded, capped.
     private func extraNotes(for session: FocusSession, app: String) -> String {
         var notes = [prefs.focusNotes.trimmingCharacters(in: .whitespacesAndNewlines)]
         if prefs.learningEnabled {
@@ -232,8 +220,8 @@ final class MonitorService: ObservableObject {
         return String(notes.filter { !$0.isEmpty }.joined(separator: "\n").prefix(1500))
     }
 
-    /// Raise the block. What the block *offers* depends on the accountability level the session was
-    /// started at — read from the session, not from a global setting that could have drifted since.
+    /// The accountability level is read from the session, not from a global setting that could
+    /// have drifted since it started.
     private func enforceOffTask(_ session: FocusSession, _ bundleId: String, _ name: String,
                                 _ verdict: Providers.Verdict, _ judgementId: String) async {
         prefs.lastViolationAt = Date()
@@ -304,9 +292,7 @@ final class MonitorService: ObservableObject {
 
     // MARK: - Shared
 
-    /// A watched app's screen could NOT be read (blank/protected frame, capture failure, or an
-    /// answer we couldn't parse). Never blocks. This is the anti-lockout rule: a screen we cannot
-    /// see is not a screen we get to punish.
+    /// A screen we cannot read is never a block.
     private func handleUnverifiable(_ bundleId: String, _ name: String, _ why: String,
                                     _ dry: Bool) async {
         if dry {

@@ -1,11 +1,7 @@
 import SwiftUI
 
-/// Pick which apps are watched. Two jobs, one view.
-///
-/// With no arguments it edits the saved default watchlist, as before. Given a `selection` binding
-/// it becomes a session-scoped picker: the start form uses it to tick one extra app for today
-/// without touching the defaults. Keeping this as one view rather than two means the search, the
-/// scan and the emulator tagging only exist once.
+/// Pick which apps are watched. Two jobs, one view: with no arguments it edits the saved default
+/// watchlist; given a `selection` binding it becomes a session-scoped picker.
 struct AppPickerView: View {
     /// When nil, the view edits `Prefs.monitoredApps` directly.
     var selection: Binding<Set<String>>?

@@ -2,12 +2,9 @@ import CryptoKit
 import Foundation
 import Security
 
-/// Small Keychain wrapper for the things that must not sit in a shared defaults plist: API keys,
-/// the passcode hash, and the ntfy topic.
-///
-/// The access group is what lets the extensions read the ntfy topic (the shield action extension
-/// needs it to alert a partner) while keeping everything out of the App Group's plist, which is
-/// readable by anything in the group and survives in backups as plain text.
+/// Keychain wrapper for the things that must not sit in a shared defaults plist: API keys, the
+/// passcode hash, and the ntfy topic. The access group lets the shield action extension read the
+/// topic when it needs to alert a partner.
 enum Keychain {
 
     /// Must match the `keychain-access-groups` entitlement in every target that reads a secret.
@@ -33,8 +30,7 @@ enum Keychain {
     }
 
     static func set(_ key: String, _ value: String) {
-        // Delete-then-add rather than update: an update on a missing item fails, and branching on
-        // which case we're in is more code than just replacing it.
+        // Delete-then-add: an update on a missing item fails, and branching is more code.
         delete(key)
         guard !value.isEmpty else { return }
         var attributes: [String: Any] = [
@@ -42,7 +38,6 @@ enum Keychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecValueData as String: Data(value.utf8),
-            // Available after first unlock so an extension launched in the background can read it.
             // Not `WhenUnlocked`: the shield action extension can run while the phone is locked.
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
         ]

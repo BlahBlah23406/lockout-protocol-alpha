@@ -3,17 +3,11 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// Pluggable model providers for the focus classifier.
+/// Model providers for the focus classifier.
 ///
-/// The content-safety classifier spoke to exactly one backend because it only ever had one job. A
-/// focus monitor runs a check every couple of minutes for hours, so *whose* model it is and
-/// *where* it runs becomes the user's decision: a laptop with a good GPU wants local Ollama and
-/// zero cost, a MacBook Air wants something hosted, a regulated workplace wants the request to
-/// never leave the VPN.
-///
-/// The request shape is the easy part and differs per provider. The *policy* — retry, key
-/// fail-over, and the rule that a backend hiccup NEVER blocks the user — is the hard-won part
-/// (see `OllamaClient.swift`), so it lives once, here, and is shared by all four kinds.
+/// The request shape differs per provider; the retry and key fail-over policy is shared, because
+/// the rule it enforces — a backend problem must never look like the user being off task —
+/// applies equally to all of them.
 enum ProviderKind: String, Codable, Sendable {
     case ollama, openai, anthropic, custom
 }
@@ -31,8 +25,8 @@ struct ProviderPreset: Identifiable, Sendable {
 
 enum Providers {
 
-    /// `custom` is not a fourth code path — it is `openai` with the URL field unlocked. It exists
-    /// as its own entry only so the picker can say "anything OpenAI-compatible" out loud.
+    /// `custom` is `openai` with the URL field unlocked, listed separately so the picker can say
+    /// "anything OpenAI-compatible".
     static let presets: [ProviderPreset] = [
         .init(id: "ollama-local", kind: .ollama, label: "Ollama (on this Mac)",
               baseUrl: "http://127.0.0.1:11434", model: "qwen3-vl:8b", needsKey: false,
@@ -65,18 +59,12 @@ enum Providers {
 
     /// One focus check.
     ///
-    /// The two escape hatches are load-bearing and deliberately distinct, because conflating them
-    /// is how a monitor ends up locking someone out of their own machine:
-    ///
-    /// - `undetermined` — an answer we couldn't read, or a screen we couldn't read. Not the user's
-    ///   fault, not evidence of anything. Never a block.
-    /// - `transient` — the backend was busy or unreachable (5xx, 429, timeout, out of quota). Also
-    ///   never a block; the next tick simply tries again.
+    /// `undetermined` (unreadable answer or screen) and `transient` (backend busy, unreachable, or
+    /// out of quota) are kept distinct from an off-task answer, and neither ever blocks.
     struct Verdict: Sendable {
         var onTask: Bool = true
         var reason: String = ""
-        /// The model's own 0–1 self-report. Not treated as calibrated — used only as a threshold
-        /// input for the learner, and to word the log line honestly.
+        /// The model's own 0–1 self-report. Not treated as calibrated.
         var confidence: Double = 0
         var raw: String = ""
         var undetermined: Bool = false
@@ -100,18 +88,10 @@ enum Providers {
 
     // MARK: - The classifier prompt
 
-    /// This prompt is the product. Two things about it are deliberate:
-    ///
-    /// 1. It is BIASED TOWARDS "on task" — the exact opposite of the content-safety classifier,
-    ///    which flags when in doubt. That asymmetry follows from what a mistake costs. A missed
-    ///    frame of off-task browsing costs ten seconds. A false alarm interrupts real work, and
-    ///    two or three of those in an afternoon and the app is uninstalled — at which point it
-    ///    protects nothing at all. A focus monitor that cries wolf is worse than none.
-    ///
-    /// 2. It counts SUPPORTING work as on-task. Almost nothing real happens inside one app: "math
-    ///    test prep" legitimately includes a YouTube lecture, a forum thread, a study-group chat,
-    ///    past papers, and the Finder window you found them in. A classifier that only accepts a
-    ///    PDF viewer is measuring app choice, not focus.
+    /// Biased towards "on task", which is the opposite of the content-safety classifier. The
+    /// asymmetry follows from what a mistake costs: a missed frame of browsing costs seconds, a
+    /// false alarm interrupts real work and gets the app uninstalled. It also counts supporting
+    /// work as on-task, because almost nothing real happens inside a single app.
     static let focusSystem = """
         You decide whether ONE screenshot shows a person working on the task they declared.
 
@@ -155,9 +135,8 @@ enum Providers {
         {"unreadable": true}
         """
 
-    /// The per-check message. App name and title are passed as text as well as being visible in
-    /// the image: small vision models read a supplied string far more reliably than a 12px title
-    /// bar, and the title is usually the single most informative signal on the screen.
+    /// App name and title are supplied as text as well as being visible in the image: a small
+    /// vision model reads a given string far more reliably than a 12px title bar.
     static func userPrompt(task: String, appName: String, windowTitle: String,
                            extraNotes: String = "") -> String {
         var parts = [
@@ -169,7 +148,6 @@ enum Providers {
         ]
         let notes = extraNotes.trimmingCharacters(in: .whitespacesAndNewlines)
         if !notes.isEmpty {
-            // Where the learner's accumulated "you were wrong about this before" lines land.
             parts += ["", "PREVIOUSLY CONFIRMED BY THE USER — treat these as settled:", notes]
         }
         parts += ["", "Is this screen part of that task? Answer in JSON."]
@@ -178,8 +156,8 @@ enum Providers {
 
     // MARK: - Parsing (pure — driven directly by the tests)
 
-    /// Turn the model's JSON text into a Verdict. Small models fence their JSON even when told not
-    /// to, so fences are stripped rather than throwing away an otherwise good answer.
+    /// Small models fence their JSON even when told not to, so fences are stripped rather than
+    /// discarding an otherwise good answer.
     static func parseFocusJSON(_ content: String) -> Verdict {
         var text = content.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasPrefix("```") {
@@ -201,8 +179,7 @@ enum Providers {
             return Verdict(reason: "screen unreadable", raw: text, undetermined: true)
         }
 
-        // A missing or non-boolean answer is not a "no" — it is a failure to answer, and treating
-        // it as a "no" would block people over a malformed reply.
+        // A missing answer is a failure to answer, not a "no".
         guard let onTask = obj["on_task"] as? Bool else {
             return Verdict(reason: "no on_task field", raw: text, undetermined: true)
         }
@@ -266,8 +243,7 @@ enum Providers {
                 "model": cfg.model,
                 "stream": false,
                 "format": "json",
-                // Keep the model resident between checks. At a 2-minute interval a cold reload
-                // each time would cost more than the inference does.
+                // At a 2-minute interval a cold model reload costs more than the inference.
                 "keep_alive": "20m",
                 "messages": [
                     ["role": "system", "content": system],
@@ -291,8 +267,7 @@ enum Providers {
             ], extraHeaders: ["anthropic-version": "2023-06-01"])
 
         case .openai, .custom:
-            // A bare host gets /v1 appended; a URL that already ends in /v1 (LM Studio,
-            // OpenRouter, most gateways) is left alone — appending a second one is the single most
+            // A URL that already ends in /v1 is left alone; appending a second is the most
             // common way people misconfigure this.
             let prefix = base.hasSuffix("/v1") ? base : base + "/v1"
             guard let url = URL(string: prefix + "/chat/completions") else { return nil }
@@ -313,7 +288,7 @@ enum Providers {
         }
     }
 
-    /// Providers disagree about where the key goes; that is the entire difference in auth.
+    /// Providers disagree about where the key goes; that is the whole difference in auth.
     static func authHeaders(_ cfg: Config, key: String) -> [String: String] {
         guard !key.isEmpty else { return [:] }
         return cfg.kind == .anthropic ? ["x-api-key": key] : ["Authorization": "Bearer \(key)"]
@@ -330,9 +305,8 @@ enum Providers {
         [408, 429, 500, 502, 503, 504].contains(code)
     }
 
-    /// This *key* can't be used right now — out of credit (402/429) or rejected (401/403).
-    /// Triggers fail-over to the next key. If every key is out, the verdict stays transient:
-    /// being out of API credit is our problem, and must never cost the user a block.
+    /// This key is out of credit or rejected — fail over to the next. If every key is out the
+    /// verdict stays transient: being out of API credit must never cost the user a block.
     static func isKeyExhaustedCode(_ code: Int) -> Bool {
         [401, 402, 403, 429].contains(code)
     }
@@ -370,15 +344,13 @@ enum Providers {
             }
             return Attempt(verdict: parseResponse(kind: kind, body: data))
         } catch {
-            // A local Ollama that isn't running lands here. Transient is right: the user probably
-            // just hasn't started it yet, and the status line will say so.
+            // A local Ollama that isn't running lands here.
             return Attempt(verdict: Verdict(reason: "AI unreachable: \(error.localizedDescription)",
                                             undetermined: true, transient: true))
         }
     }
 
-    /// Run one focus check. `onKeyWorked` is called when fail-over succeeded on a non-first key,
-    /// so the next call can start there.
+    /// Run one focus check.
     static func evaluate(_ cfg: Config, image: CGImage, task: String, appName: String,
                          windowTitle: String, extraNotes: String = "",
                          onKeyWorked: (@Sendable (String) -> Void)? = nil) async -> Verdict {
@@ -430,9 +402,8 @@ enum Providers {
         return lastTransient
     }
 
-    /// Cheap "can I talk to this at all?" probe for the settings screen, so a user finds out their
-    /// local Ollama isn't running *now* rather than 40 minutes into a session.
-    /// Returns nil when things look fine, or a human-readable problem.
+    /// "Can I talk to this at all?" probe for the settings screen. Nil when fine, or a
+    /// human-readable problem.
     static func reachability(_ cfg: Config) async -> String? {
         guard !cfg.baseUrl.isEmpty else { return "no server URL set" }
         guard !cfg.model.isEmpty else { return "no model set" }
@@ -458,7 +429,6 @@ enum Providers {
             if code == 401 || code == 403 { return "server reachable, but the API key was rejected" }
             guard (200...299).contains(code) else { return "server returned HTTP \(code)" }
             let body = String(data: data, encoding: .utf8) ?? ""
-            // Reachable — now the more useful question: is the model the user typed actually there?
             if !body.contains(cfg.model) {
                 return "server is up, but '\(cfg.model)' was not in its model list"
             }

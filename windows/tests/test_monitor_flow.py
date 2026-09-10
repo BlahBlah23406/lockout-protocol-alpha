@@ -1,12 +1,7 @@
-"""End-to-end tests of the monitor loop, with the screen and the model faked out.
+"""The monitor loop end to end, with the screen and the model faked out.
 
-The unit tests prove each piece is correct in isolation. These prove the pieces are wired
-together: that a session actually reaches the classifier, that an off-task verdict actually
-reaches the block controller, and — most importantly — that all the paths which must NOT block
-really don't. A monitor whose parts are individually right but wired wrong is the failure mode
-that hurts, because it looks fine until it locks someone out of their own machine.
-
-Nothing here takes a screenshot, opens a window, or makes a network call.
+The unit tests cover each piece; these cover the wiring, and especially the paths that must NOT
+block. Nothing here takes a screenshot, opens a window, or makes a network call.
 """
 
 import sys
@@ -37,16 +32,15 @@ class MonitorFlowCase(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         tmp = Path(self.tmp.name)
 
-        # Redirect all on-disk state, including the activity log — otherwise running the tests
-        # appends fake "[BLOCK] Chrome OFF TASK" lines to the real log in the user's AppData,
-        # which is both confusing and a way to make a genuine incident unreadable.
+        # Including the activity log: otherwise the tests append fake "[BLOCK] Chrome OFF TASK"
+        # lines to the real log in the user's AppData.
         for module, attr in ((session_mod, "SESSION_FILE"), (session_mod, "HISTORY_FILE"),
                              (judgements, "JUDGEMENTS_FILE"), (event_log_mod, "LOG_FILE")):
             original = getattr(module, attr)
             setattr(module, attr, tmp / Path(original).name)
             self.addCleanup(lambda m=module, a=attr, o=original: setattr(m, a, o))
 
-        # Fresh singletons per test — these are process-wide and would leak between cases.
+        # Process-wide singletons; a fresh one per test stops them leaking between cases.
         SessionStore._instance = None
         MonitorService._instance = None
         self.store = SessionStore.shared()
@@ -54,8 +48,6 @@ class MonitorFlowCase(unittest.TestCase):
         self.addCleanup(lambda: setattr(SessionStore, "_instance", None))
         self.addCleanup(lambda: setattr(MonitorService, "_instance", None))
         overrides._until.clear()
-        # The event log is a process-wide singleton with in-memory entries; a fresh one per test
-        # keeps assertions about it from seeing another test's lines.
         event_log_mod.EventLog._instance = None
         self.addCleanup(lambda: setattr(event_log_mod.EventLog, "_instance", None))
 
@@ -110,8 +102,7 @@ class MonitorFlowCase(unittest.TestCase):
 class TestNoSessionMeansNoCapture(MonitorFlowCase):
 
     def test_idle_never_touches_the_screen(self):
-        """The privacy claim in the README, as a test: with no session and content rules off,
-        `capture()` is not called at all."""
+        """The README's privacy claim, as a test: with no session, `capture()` is never called."""
         with mock.patch("guardian.service.monitor_service.screen_capturer.capture") as cap, \
              mock.patch.object(type(self.prefs), "content_rules_enabled",
                                property(lambda _s: False)):
@@ -144,8 +135,7 @@ class TestOnTaskPath(MonitorFlowCase):
             ev.assert_not_called()
 
     def test_a_session_only_app_is_checked(self):
-        """The per-session one-off list is what makes the defaults usable; prove it reaches the
-        watchlist the loop actually consults."""
+        """The per-session list reaches the watchlist the loop actually consults."""
         self.start_session(extra_apps={"steam.exe"})
         with mock.patch("guardian.service.monitor_service.foreground_app.identifier",
                         return_value="steam.exe"):
@@ -275,8 +265,7 @@ class TestNothingElseEverBlocks(MonitorFlowCase):
 class TestCadence(MonitorFlowCase):
 
     def test_the_interval_is_respected_between_checks_on_one_app(self):
-        """Switching away and back must not be a way to force a check storm — each app carries
-        its own next-due time."""
+        """Switching away and back must not force a check storm."""
         self.start_session(interval_seconds=300)
         self.stub_model(providers.Verdict(on_task=True))
         self.monitor._tick()
@@ -289,8 +278,7 @@ class TestCadence(MonitorFlowCase):
         self.assertEqual(self.store.current.checks, 1)
 
     def test_a_newly_focused_app_is_checked_immediately(self):
-        """The moment you switch into a distraction is exactly when it is worth looking, so a new
-        app must not inherit the previous app's countdown."""
+        """A new app must not inherit the previous app's countdown."""
         self.start_session(interval_seconds=300, extra_apps={"steam.exe"})
         self.stub_model(providers.Verdict(on_task=True))
         self.monitor._tick()
@@ -303,8 +291,7 @@ class TestCadence(MonitorFlowCase):
 class TestSessionLifecycle(MonitorFlowCase):
 
     def test_an_expired_session_ends_itself_and_is_archived(self):
-        """Expiry is evaluated on read, so a laptop that slept past the end time still ends
-        cleanly rather than waiting for a timer that never fired."""
+        """Expiry is evaluated on read, so a laptop that slept past the end time still ends."""
         session = self.start_session(planned_minutes=30)
         session.started_at = time.time() - 31 * 60
         self.store._save()
@@ -313,8 +300,7 @@ class TestSessionLifecycle(MonitorFlowCase):
         self.assertEqual(self.store.history()[0].ended_reason, "time's up")
 
     def test_a_session_survives_a_restart(self):
-        """Force-quitting the app must not silently cancel a locked session — otherwise 'locked'
-        is worth nothing."""
+        """Force-quitting must not silently cancel a locked session."""
         self.start_session(accountability=ACC_LOCKED, task="write the essay")
         SessionStore._instance = None
         revived = SessionStore.shared().current

@@ -1,17 +1,9 @@
 import Foundation
 
-/// Which accountability level a session was started at.
+/// The two accountability levels, differing only in who holds the exit.
 ///
-/// This is the choice the whole product turns on, and the difference is *who holds the exit*:
-///
-/// - `.selfManaged` — you can end the session or dismiss a block yourself, no passcode. The block
-///   still interrupts you and still goes in the log; the friction is the product. Nobody else is
-///   told. The honest default for most people.
-/// - `.locked` — ending the session early, or overriding a block, needs the passcode, and both
-///   fire an ntfy alert to your accountability partner's private link.
-///
-/// Neither level can ever trap you: closing a blocked app is always passcode-free (see
-/// `SAFEGUARDS.md`). What "locked" costs is the *override*, not the escape.
+/// Neither can trap you: closing a blocked app is always passcode-free. What `.locked` costs is
+/// the override, not the escape. See `SAFEGUARDS.md`.
 enum Accountability: String, Codable, CaseIterable, Sendable {
     case selfManaged = "self"
     case locked = "locked"
@@ -34,23 +26,17 @@ enum Accountability: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Only a locked session holds its own exit. Pretending otherwise for `.selfManaged` would be
-    /// a lie — you can always quit the app.
+    /// Only a locked session holds its own exit; you can always quit the app.
     var requiresPasscodeToEnd: Bool { self == .locked }
     var alertsPartner: Bool { self == .locked }
 }
 
-/// One declared stretch of work: a task in the user's own words, for a length of time, over a set
-/// of apps, checked every `intervalSeconds`.
-///
-/// The app is organised around this rather than around an always-on mode, and that is a product
-/// decision, not a refactor: **when no session is running, nothing is captured at all.** A tool
-/// that only looks at your screen during a window you opened yourself is a different thing to live
-/// with than one that is always watching.
+/// One declared stretch of work: a task, a length, a set of apps, checked every
+/// `intervalSeconds`. When no session is running, nothing is captured at all.
 struct FocusSession: Codable, Identifiable, Sendable {
 
-    /// Seconds between checks. Below a minute you pay for inference constantly and get interrupted
-    /// by transients; above five a real detour has already eaten the block it should have stopped.
+    /// Below a minute you pay for inference constantly; above five a detour has already eaten
+    /// the block it should have prevented.
     static let defaultInterval = 120
     static let minInterval = 15
     static let maxInterval = 3600
@@ -58,12 +44,12 @@ struct FocusSession: Codable, Identifiable, Sendable {
     var id: String
     var task: String
     var startedAt: Date
-    /// 0 means open-ended. Deliberately not offered for `.locked` — an open-ended locked session
-    /// plus a forgotten passcode is the one shape that could genuinely trap someone.
+    /// 0 = open-ended. Not offered for `.locked`: open-ended plus a forgotten passcode is the
+    /// one shape that could genuinely trap someone.
     var plannedMinutes: Int
     var intervalSeconds: Int
     var accountability: Accountability
-    /// One-off, this-session-only adjustments layered over the saved default watchlist.
+    /// This-session-only adjustments over the saved default watchlist.
     var extraApps: Set<String>
     var allowedApps: Set<String>
     var providerId: String
@@ -104,12 +90,8 @@ struct FocusSession: Codable, Identifiable, Sendable {
 
     // MARK: - Watchlist
 
-    /// The apps actually watched this session: your saved defaults, plus anything you added just
-    /// for today, minus anything you excused just for today.
-    ///
-    /// The exclusion is not a loophole — it is what makes a default list usable. If Slack is
-    /// normally a distraction but today's task *is* answering Slack, you shouldn't have to edit
-    /// your permanent settings and then forget to put them back.
+    /// Saved defaults, plus anything added just for today, minus anything excused just for today.
+    /// Stored as a delta rather than a copy, so editing the defaults mid-session takes effect.
     func watchlist(defaults: Set<String>) -> Set<String> {
         defaults.union(extraApps).subtracting(allowedApps)
     }
@@ -141,10 +123,10 @@ struct FocusSession: Codable, Identifiable, Sendable {
     }
 }
 
-/// The one active session, persisted, plus an append-only history of finished ones.
+/// The one active session, persisted, plus an append-only history.
 ///
-/// Persistence is not a nicety here: if force-quitting the app silently cancelled a locked
-/// session, "locked" would be worth nothing. A relaunch picks the session back up where it was.
+/// Persistence is load-bearing: if force-quitting silently cancelled a locked session, "locked"
+/// would be worth nothing.
 @MainActor
 final class SessionStore: ObservableObject {
 
@@ -173,8 +155,8 @@ final class SessionStore: ObservableObject {
 
     // MARK: - Accessors
 
-    /// The live session, or nil. Expiry is evaluated lazily on read so nothing depends on a timer
-    /// having fired — a Mac that slept past the end time still ends its session cleanly.
+    /// The live session, or nil. Expiry is evaluated on read, so a Mac that slept past the end
+    /// time still ends its session cleanly.
     var current: FocusSession? {
         guard let s = stored else { return nil }
         if s.isOver {
@@ -205,8 +187,7 @@ final class SessionStore: ObservableObject {
         save()
     }
 
-    /// Used by the block screen's override: stop checking for a bit so the user isn't re-blocked
-    /// mid-sentence while they finish what they said they needed to do.
+    /// Used by the block screen's override, so the user isn't re-blocked mid-sentence.
     func pause(seconds: TimeInterval) {
         guard var s = stored else { return }
         s.pausedUntil = Date().addingTimeInterval(max(seconds, 0))
@@ -273,7 +254,7 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    /// Finished sessions, newest last. A torn final line after a hard kill is skipped, not fatal.
+    /// Finished sessions, newest last. A torn final line after a hard kill is skipped.
     func history(limit: Int = 50) -> [FocusSession] {
         guard let text = try? String(contentsOf: historyURL, encoding: .utf8) else { return [] }
         let decoder = JSONDecoder()

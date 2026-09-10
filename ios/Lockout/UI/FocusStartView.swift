@@ -4,11 +4,9 @@ import SwiftUI
 
 /// "What are you working on?" — the start flow, in two steps.
 ///
-/// Step one is the same everywhere: type the task, pick a length and a level. Step two is
-/// iOS-only and exists because the decision here is coarser than on the other platforms — the
-/// model picks whole apps to shut, so the user gets to see and correct that list before it takes
-/// effect. On the desktop a wrong call costs one interrupted moment; here it costs an app being
-/// shut for ninety minutes, so it is worth one confirmation screen.
+/// Step two is iOS-only: the model picks whole apps to shut, so the user reviews that list before
+/// it applies. A wrong call here costs an app for ninety minutes rather than one interrupted
+/// moment.
 struct FocusStartView: View {
     var onStarted: () -> Void
     var onCancel: () -> Void
@@ -117,7 +115,6 @@ struct FocusStartView: View {
             Text("Accountability")
         } footer: {
             if let warning = lockedWarning {
-                // Say the awkward part out loud before they commit, not after.
                 Text("⚠ " + warning).foregroundStyle(.orange)
             }
         }
@@ -133,8 +130,7 @@ struct FocusStartView: View {
         if !prefs.pushEnabled {
             problems.append("alerts are off, so nobody will actually be told")
         }
-        // On iOS an unshield can only be done from inside the app, so a locked session has one
-        // extra thing worth knowing before you start it.
+        // On iOS an unshield can only be done from inside the app.
         problems.append("unshielding a locked session has to be done here in Lockout — the shield "
                       + "screen itself can't ask for a passcode")
         return problems.joined(separator: "; ")
@@ -223,8 +219,7 @@ struct FocusStartView: View {
         thinking = true
         defer { thinking = false }
 
-        // Build the candidate list. The label is whatever the system will tell us, which is often
-        // nothing — `ShieldPlan` handles the unnamed case explicitly.
+        // The label is whatever the system will tell us, which is often nothing.
         candidates = selection.applicationTokens.compactMap { token in
             guard let encoded = ShieldController.encode(token: token) else { return nil }
             return ShieldPlan.Candidate(token: encoded,

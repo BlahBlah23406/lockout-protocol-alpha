@@ -3,16 +3,13 @@ import ManagedSettingsUI
 import SwiftUI
 import UIKit
 
-/// What the shield actually looks like when you open a shielded app.
+/// What the shield looks like when you open a shielded app.
 ///
-/// This runs in its own process, launched by iOS, with the app not running and a hard memory
-/// ceiling of a few megabytes. So: no networking, no session mutation, no shared singletons, and
-/// nothing that allocates much. It reads the session file, formats two strings, and returns.
+/// Runs in its own process with a few megabytes to spend: no networking, no session mutation, no
+/// shared singletons. It reads the session file, formats two strings, and returns.
 ///
-/// It is also the only place the user meets the product mid-session, so it is worth getting the
-/// words right. The screen says what they told us they were doing — in their words — because
-/// "you said you were revising integration by parts" is an argument, and "This app is blocked" is
-/// just an obstacle. Obstacles get routed around; arguments occasionally work.
+/// It is the only place the user meets the product mid-session, so it quotes their own words back
+/// at them rather than saying "blocked".
 class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
     override func configuration(shielding application: Application) -> ShieldConfiguration {
@@ -47,8 +44,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             title = "You said you were:"
             subtitle = shieldBody(task: session.task, appName: name, locked: locked)
         } else {
-            // The session ended but iOS hasn't lifted the shield yet — which is a state the user
-            // can genuinely reach, so it gets an honest screen rather than a stale one.
+            // The session ended but iOS hasn't lifted the shield yet — a reachable state.
             title = "Session over"
             subtitle = "This shield is being lifted. Open Lockout if it's still here in a minute."
         }
@@ -75,8 +71,7 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return "\(task)\n\n\(appName) isn't part of that.\n\n\(tail)"
     }
 
-    // The LCARS palette, inlined: an extension can't read the app's asset catalog cheaply and
-    // shouldn't try, given the memory budget.
+    // Inlined: an extension shouldn't spend its memory budget reading an asset catalog.
     private var gold: UIColor { UIColor(red: 1.0, green: 0.8, blue: 0.4, alpha: 1) }
     private var orange: UIColor { UIColor(red: 1.0, green: 0.6, blue: 0.4, alpha: 1) }
 }

@@ -45,24 +45,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The monitoring loop. Two modes meet here:
+ * The monitoring loop.
  *
- * **Focus mode** (the product). A session is running — the user declared a task like "revising
- * integration by parts" — so every `intervalSeconds` we screenshot whichever watched app is in
- * front and ask the model whether that screen belongs to that task.
+ * Focus mode runs while a session is active: every `intervalSeconds` it screenshots whichever
+ * watched app is in front and asks the model whether that screen belongs to the declared task.
+ * Content rules are the original always-on classifier, opt-in and off by default.
  *
- * **Content rules** (opt-in, off by default). The original behaviour: an always-on classifier
- * checking screens against written content guidelines.
+ * When neither is active, no screenshot is taken at all — which matters here more than on the
+ * desktop, because this app holds an AccessibilityService that can read the screen.
  *
- * The most important structural change: **when no session is running, no screenshot is taken at
- * all.** Not captured and discarded — never taken. On Android that matters more than anywhere
- * else, because this app holds an AccessibilityService that can read the screen, and "only while
- * you asked it to" is the difference between a tool people keep installed and one they don't.
- *
- * Cadence follows the session's interval rather than how fast the model answers. The old loop
- * fired again 1.2s after each reply, which is right for content safety (one frame of the wrong
- * thing matters) and wrong here: it would burn hundreds of calls an hour, and a phone's battery,
- * on a question whose answer changes over minutes.
+ * Cadence follows the session's interval rather than how fast the model answers; the old
+ * response-driven loop would burn hundreds of calls an hour, and a phone's battery, on a question
+ * whose answer changes over minutes.
  */
 class MonitorService : Service() {
 
@@ -79,10 +73,9 @@ class MonitorService : Service() {
     private val lastAlertAt = ConcurrentHashMap<String, Long>()
 
     /**
-     * When the next focus check is due, per package. Keyed by app so switching apps checks the new
-     * one promptly instead of inheriting the previous app's countdown — the moment you switch into
-     * a distraction is exactly the moment worth looking — while still rate-limiting each app so
-     * flicking back and forth can't force a check storm.
+     * When the next check is due, per package. Keyed by app so switching into a distraction is
+     * checked promptly rather than inheriting the previous app's countdown, while still
+     * rate-limiting each app so flicking back and forth can't force a check storm.
      */
     private val nextCheckAt = ConcurrentHashMap<String, Long>()
 
@@ -92,10 +85,8 @@ class MonitorService : Service() {
         ai = OllamaClient(prefs)
         isRunning = true
         Judgements.trim(this)
-        // New apps are monitored by default. Catch up on anything installed while we were down,
-        // then listen live for future installs. This is a content-rules defence (installing a
-        // fresh browser shouldn't be a free pass); in focus mode the watchlist is whatever the
-        // user picked for the session, so a new install is simply not watched until they say so.
+        // A content-rules defence: installing a fresh browser shouldn't be a free pass. In focus
+        // mode the watchlist is whatever the user picked, so a new install isn't watched.
         AutoMonitor.syncNewInstalls(this)
         ContextCompat.registerReceiver(
             this, pkgReceiver,
@@ -158,18 +149,15 @@ class MonitorService : Service() {
 
         val a11y = AppWatchAccessibilityService.instance
         if (a11y == null) {
-            // Accessibility is our only capture path. Losing it is a real blind spot, reported by
-            // the tamper guard — but it is never a block, and never a reason to stop the loop.
+            // Our only capture path. Losing it is a blind spot the tamper guard reports; it is
+            // never a block, and never a reason to stop the loop.
             Log.w("MonitorService", "accessibility service unavailable; skipping tick")
             return IDLE_POLL_MS
         }
 
         val fg = a11y.topAppPackage() ?: ForegroundApp.current
         val watchlist = session.watchlist(prefs.monitoredPackages)
-        if (fg.isBlank() || fg !in watchlist) {
-            // Not a watched app. In focus mode this is the normal, uninteresting case.
-            return FOCUS_IDLE_POLL_MS
-        }
+        if (fg.isBlank() || fg !in watchlist) return FOCUS_IDLE_POLL_MS
         if (Overrides.isActive(fg)) return FOCUS_IDLE_POLL_MS
 
         val due = nextCheckAt[fg] ?: 0L
@@ -179,8 +167,8 @@ class MonitorService : Service() {
         val screenTitle = a11y.topScreenTitle()
         val dry = prefs.dryRun
 
-        // The learner can pre-allow a signature the user has repeatedly excused. Checked BEFORE
-        // the capture, so a confirmed-fine screen costs no screenshot and no inference at all.
+        // Checked before the capture, so a confirmed-fine screen costs no screenshot and no
+        // inference at all.
         if (prefs.learningEnabled) {
             val learned = LearnedPolicy.decide(this, session.task, fg, screenTitle)
             if (learned.preAllow) {
@@ -215,7 +203,7 @@ class MonitorService : Service() {
         }
         val aiMs = SystemClock.elapsedRealtime() - aiStart
 
-        // Transient backend trouble is never evidence about the user: log, retry sooner, no block.
+        // Transient backend trouble is never evidence about the user.
         if (verdict.transient) {
             EventLog.add("\u23f3 $fg \u2014 AI unavailable (${verdict.reason}) \u2014 skipped")
             nextCheckAt[fg] = System.currentTimeMillis() + TRANSIENT_RETRY_MS
@@ -238,8 +226,8 @@ class MonitorService : Service() {
             return interval
         }
 
-        // Off task. The learner may have raised the confidence bar for this (app, task) pair after
-        // repeated false alarms; below the bar we record it but don't interrupt.
+        // The learner may have raised the confidence bar for this (app, task) pair; below the bar
+        // we record but don't interrupt.
         val threshold = if (prefs.learningEnabled) {
             LearnedPolicy.decide(this, session.task, fg, screenTitle).blockThreshold
         } else {
@@ -267,15 +255,11 @@ class MonitorService : Service() {
         return interval
     }
 
-    /**
-     * Standing notes handed to the classifier: the user's own, plus anything the experimental
-     * learner has concluded. Both capped hard — a prompt suffix that grows without bound
-     * eventually costs more than the screenshot does.
-     */
+    /** The user's standing notes plus anything the learner concluded, capped. */
     private fun extraNotes(session: FocusSession, pkg: String, title: String): String {
         val parts = mutableListOf(prefs.focusNotes.trim())
         if (prefs.learningEnabled) {
-            // The learner is experimental; it must never be able to break a check.
+            // Experimental; it must never be able to break a check.
             parts += runCatching {
                 LearnedPolicy.promptSuffix(this, session.task, pkg, title)
             }.getOrDefault("")
@@ -283,10 +267,8 @@ class MonitorService : Service() {
         return parts.filter { it.isNotEmpty() }.joinToString("\n").take(1500)
     }
 
-    /**
-     * Raise the block. What the block *offers* depends on the accountability level the session was
-     * started at — read from the session, not from a global setting that could have drifted since.
-     */
+    /** The accountability level is read from the session, not from a global setting that could
+     *  have drifted since it started. */
     private suspend fun enforceOffTask(
         session: FocusSession, pkg: String, reason: String, judgementId: String
     ) {
@@ -459,9 +441,7 @@ class MonitorService : Service() {
 
     /**
      * What the persistent notification says. It has to be honest about whether anything is being
-     * watched: a foreground-service notification that reads "Monitoring active" while no session
-     * is running would be the app misrepresenting itself to the user, in the one place Android
-     * guarantees they will see it.
+     * watched — this is the one place Android guarantees the user will look.
      */
     private fun statusText(): String {
         val session = SessionStore.current(this)
@@ -510,8 +490,8 @@ class MonitorService : Service() {
         // Lazier poll when no monitored app is on screen.
         private const val IDLE_POLL_MS = 2_500L
 
-        // Focus mode: how often we re-check WHICH app is in front while not on a watched app.
-        // Cheap (an accessibility node read, no capture, no inference) so it can be brisk.
+        // How often to re-check which app is in front while not on a watched app. Cheap: one
+        // accessibility node read, no capture, no inference.
         private const val FOCUS_IDLE_POLL_MS = 3_000L
 
         // After a transient backend failure, retry sooner than a full interval but not instantly.

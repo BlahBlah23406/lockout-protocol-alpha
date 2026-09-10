@@ -3,13 +3,9 @@ import WidgetKit
 
 /// The home-screen and Lock Screen widget: start a session, or see the one running.
 ///
-/// Same job as the macOS menu-bar item, the Windows tray panel, and the Android widget, for the
-/// same reason: a focus tool that takes four taps to arm gets used on the days you least need it.
-///
-/// It deliberately does NOT start a session on its own. Tapping it deep-links into the app with
-/// the last task prefilled — because on iOS the plan needs a confirmation step (the model picks
-/// whole apps to shut, so the user has to see the list before it happens), and because a stray
-/// home-screen tap should never be able to begin a locked session.
+/// It does not start a session itself — it deep-links into the app with the last task prefilled,
+/// because the shield plan needs a confirmation step and a stray tap should never begin a locked
+/// session.
 struct FocusWidget: Widget {
 
     var body: some WidgetConfiguration {
@@ -45,11 +41,8 @@ struct Provider: TimelineProvider {
         completion(entry())
     }
 
-    /// A timeline rather than a single entry, so the countdown is honest without the app running.
-    ///
-    /// WidgetKit will not let us refresh on demand every second, so the entries are precomputed:
-    /// one a minute until the session ends, then one final "no session" entry. That way the widget
-    /// counts down correctly on its own and flips to idle at exactly the right moment.
+    /// Entries are precomputed one a minute, then a final "no session" one, because WidgetKit
+    /// won't refresh on demand. The countdown then runs correctly without the app.
     func getTimeline(in context: Context, completion: @escaping (Timeline<FocusEntry>) -> Void) {
         guard let session = SharedSession.current() else {
             completion(Timeline(entries: [entry()], policy: .after(Date().addingTimeInterval(900))))
@@ -59,8 +52,7 @@ struct Provider: TimelineProvider {
         var entries: [FocusEntry] = []
         let end = session.endsAt
         var cursor = Date()
-        // Cap the count: an open-ended session has no end, and a widget timeline is not the place
-        // to allocate an unbounded array.
+        // Capped: an open-ended session has no end.
         for _ in 0..<60 {
             if let end, cursor >= end { break }
             entries.append(entryFor(session, at: cursor))
@@ -87,8 +79,7 @@ struct Provider: TimelineProvider {
     }
 
     private func entryFor(_ session: FocusSession, at date: Date) -> FocusEntry {
-        // Recompute "remaining" for the entry's own date rather than for now, or every entry in
-        // the timeline would show the same number.
+        // For the entry's own date, not now, or every entry would show the same number.
         let remaining: String
         if let end = session.endsAt {
             let left = max(end.timeIntervalSince(date), 0)
@@ -109,8 +100,8 @@ struct FocusWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     private var tint: Color {
-        // Grey when nothing is shielded. The widget must never suggest a session is running when
-        // one isn't — being able to tell at a glance is the point of putting it on the home screen.
+        // Grey when nothing is shielded: the widget must never suggest a session is running when
+        // one isn't.
         guard entry.isActive else { return Color(red: 0.8, green: 0.53, blue: 0.8) }
         return entry.isLocked ? Color(red: 0.88, green: 0.33, blue: 0.24)
                               : Color(red: 0.6, green: 0.9, blue: 0.79)
@@ -167,8 +158,7 @@ struct FocusWidgetView: View {
                     .foregroundStyle(Color(red: 1, green: 0.6, blue: 0.4))
             }
         }
-        // The whole widget opens the app. A deep link rather than an intent, so there is always a
-        // confirmation step before anything is shielded.
+        // A deep link rather than an intent, so there is always a confirmation step.
         .widgetURL(URL(string: entry.isActive ? "lockout://session" : "lockout://start"))
     }
 }

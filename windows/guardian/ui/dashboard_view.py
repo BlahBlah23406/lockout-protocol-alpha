@@ -1,13 +1,4 @@
-"""The main dashboard.
-
-Reorganised around the focus session: the top of the screen answers "is a session running, what
-did I say I was doing, and how is it going", and the controls below start or end one. The old
-always-on Start/Stop pair is gone, because monitoring is no longer a mode you leave running — it
-begins and ends with a session.
-
-Tamper defences and the activity log are unchanged; they are still the honest record of what the
-app did and whether it is still able to do it.
-"""
+"""The main dashboard: session state on top, controls below, activity log at the bottom."""
 
 import threading
 import tkinter as tk
@@ -225,7 +216,7 @@ class DashboardFrame(tk.Frame):
         if session is None:
             FocusStartWindow(self.winfo_toplevel())
             return
-        # Ending a locked session early is the commitment being broken, so it costs the passcode.
+        # Ending a locked session early costs the passcode.
         if session.requires_passcode_to_end() and not require(self, "end this locked session"):
             return
         self.sessions.end("ended by user")

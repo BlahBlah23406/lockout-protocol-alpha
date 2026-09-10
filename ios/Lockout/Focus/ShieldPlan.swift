@@ -1,39 +1,18 @@
 import Foundation
 
-/// Deciding *which* apps to shut for a declared task — the iOS replacement for the screen check.
+/// Deciding which apps to shut for a declared task — the iOS replacement for the screen check.
 ///
-/// On every other platform the model is asked "you said math test prep, is this screen part of
-/// it?" once every couple of minutes. iOS will not allow that question to be asked at all, so the
-/// model is asked a different one, once, at the start of a session:
+/// The model is asked once, at the start of a session, which of the apps the user nominated should
+/// be shut. That is coarser than the desktop's per-screen check (YouTube is either shut or open)
+/// and strictly more private (nothing about the screen is captured at all).
 ///
-///     "The user says they are about to do: <task>.
-///      Here are the apps they have offered up as shieldable: <names>.
-///      Which should be shut while they do it?"
-///
-/// This is a genuinely different product with genuinely different trade-offs, and pretending
-/// otherwise would be the dishonest way to ship it:
-///
-/// **Worse:** the decision is per-app, not per-screen. YouTube is either shut or open — the model
-/// cannot let a lecture through and stop a gaming stream, because it never sees which one you
-/// opened. Coarse where the desktop is fine-grained.
-///
-/// **Better:** nothing about your screen is captured, encoded, or sent anywhere, at all, ever. The
-/// only thing that leaves the device is your typed task and a list of app names you chose to offer.
-/// The shield itself is drawn by iOS, so it cannot be swiped away or raced by another window, and
-/// the app needs no accessibility permission and no screen recording permission to work.
-///
-/// The plan is also recoverable without the model: `Fallback.plan` shields everything the user
-/// offered. A model that is unreachable must not mean an unshielded session — that is the one
-/// place on iOS where failing *closed* is right, because unlike a block screen a shield cannot
-/// lock you out of anything (iOS never shields the home screen, Settings, Phone, or Messages).
+/// `Fallback.plan` shields everything the user offered when the model can't be reached. Failing
+/// closed is right here specifically, because unlike a block screen a shield cannot lock you out
+/// of anything.
 enum ShieldPlan {
 
-    /// One app the user has offered up, as far as we are allowed to know about it.
-    ///
-    /// `token` is opaque: iOS hands back an `ApplicationToken` that only the system can resolve
-    /// back to a bundle id, which is why the label is whatever `FamilyActivityPicker` chose to
-    /// show and may be missing entirely. When it is missing the model gets "an app the system
-    /// won't name", and the safe answer for an app we cannot describe is to shield it.
+    /// One app the user offered up. `token` is opaque — only the system can resolve it — and the
+    /// label is whatever the picker chose to show, which may be nothing.
     struct Candidate: Sendable, Hashable {
         let token: String
         let label: String
@@ -47,22 +26,19 @@ enum ShieldPlan {
     struct Decision: Sendable {
         /// Tokens to shield for the session.
         var shield: [String]
-        /// Tokens deliberately left open, with the model's reason — shown in the UI so the user
-        /// can see and correct it before starting.
+        /// Tokens left open, shown in the UI so the user can correct them before starting.
         var allow: [String]
         var reasoning: String
-        /// True when the model was not consulted (unreachable, unparseable, or not configured)
-        /// and `Fallback` was used instead. Surfaced in the UI: a plan the model did not make
-        /// must not be presented as one it did.
+        /// True when `Fallback` was used. Surfaced in the UI: a plan the model did not make must
+        /// not be presented as one it did.
         var isFallback: Bool
     }
 
     // MARK: - Fallback
 
     enum Fallback {
-        /// Shield everything offered. Used when the model can't be reached or its answer can't be
-        /// read. Deliberately the *strict* choice — see the type doc for why failing closed is
-        /// right here specifically and nowhere else in this codebase.
+        /// Shield everything offered. The strict choice, for the reason in the type doc — and
+        /// nowhere else in this codebase.
         static func plan(_ candidates: [Candidate], why: String) -> Decision {
             Decision(shield: candidates.map(\.token),
                      allow: [],
@@ -74,14 +50,10 @@ enum ShieldPlan {
 
     // MARK: - Prompt
 
-    /// Biased towards shielding, which is the opposite of the screen classifier's bias — and for
-    /// the same underlying reason, applied to a different cost.
-    ///
-    /// On the desktop a false alarm interrupts real work mid-sentence, so the classifier defaults
-    /// to "on task". Here the model is not interrupting anything: it is answering, before the
-    /// session starts, which of the apps *you already nominated as distractions* should be shut.
-    /// Getting that wrong costs one tap to unshield, and the user reviews the whole plan before it
-    /// is applied. Under-shielding is the expensive mistake, so the default flips.
+    /// Biased towards shielding, which is the opposite of the screen classifier — because the
+    /// costs are reversed. Nothing is being interrupted: the user nominated these apps and
+    /// reviews the plan before it applies, so a wrong shield costs one tap and under-shielding
+    /// costs the session.
     static let system = """
         You decide which of a person's apps should be shut while they do a task they have declared.
 
@@ -133,12 +105,9 @@ enum ShieldPlan {
 
     // MARK: - Parsing
 
-    /// Map the model's answer back onto tokens.
-    ///
-    /// The model answers in app *names*, because tokens are opaque strings that mean nothing to it.
-    /// So the names have to be matched back — and this is the step that can quietly go wrong, so it
-    /// is strict in one direction: any candidate the model failed to mention, or named in a way we
-    /// cannot match, is SHIELDED. A dropped name must never silently become an open app.
+    /// Map the model's answer back onto tokens. Strict in one direction: any candidate the model
+    /// failed to mention, or named unrecognisably, is shielded. A dropped name must never silently
+    /// become an open app.
     static func parse(_ content: String, candidates: [Candidate]) -> Decision? {
         var text = content.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasPrefix("```") {
@@ -159,8 +128,7 @@ enum ShieldPlan {
         let allowNames = (obj["allow"] as? [String]) ?? []
         let reasoning = (obj["reasoning"] as? String) ?? ""
 
-        // Match on a normalised label so trivial differences in casing or punctuation don't cause
-        // a candidate to be dropped into the shield bucket for no reason.
+        // Normalised, so casing or punctuation differences don't shield something needlessly.
         let allowKeys = Set(allowNames.map(normalise))
         var shield: [String] = []
         var allow: [String] = []
@@ -185,8 +153,8 @@ enum ShieldPlan {
 
     // MARK: - Entry point
 
-    /// Ask the model for a plan. Never throws and never returns nil: a session must always be
-    /// startable, model or no model.
+    /// Never throws and never returns nil: a session must always be startable, model or no
+    /// model.
     static func decide(task: String, candidates: [Candidate], config: Providers.Config,
                        extraNotes: String = "") async -> Decision {
         guard !candidates.isEmpty else {

@@ -219,10 +219,8 @@ class Prefs private constructor(private val sp: SharedPreferences) {
 
     // ---- Generic accessors for extension properties ------------------------------------
     //
-    // `FocusPrefs.kt` adds the focus-mode settings as extension properties. Kotlin extensions
-    // can't reach a private field, so these four pairs are the narrow, deliberate opening: the
-    // focus feature reads and writes the same encrypted file without `Prefs.kt` having to grow a
-    // property per setting. Kept internal so nothing outside the app can poke arbitrary keys.
+    // Kotlin extensions can't reach a private field, so `FocusPrefs.kt` needs these. Internal, so
+    // nothing outside the app can poke arbitrary keys.
 
     internal fun getString(key: String, default: String): String =
         sp.getString(key, default) ?: default

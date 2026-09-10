@@ -1,14 +1,10 @@
 import Foundation
 
-/// Focus-mode settings, kept as an extension so `Prefs.swift` stays the content-rules original and
-/// the two concerns don't tangle.
+/// Focus-mode settings, as an extension so `Prefs.swift` stays the content-rules original.
 ///
-/// These are UserDefaults-backed computed properties rather than `@Published` stored ones, because
-/// an extension cannot add stored properties. Views observe `Prefs` and get updates because every
-/// setter below announces `objectWillChange` *before* mutating — which is what the name says and
-/// what SwiftUI's diffing expects. (`Prefs.swift`'s Keychain-backed properties announce after; that
-/// happens to work because SwiftUI re-reads on the next runloop pass, but it isn't the contract, so
-/// the new code doesn't copy it.)
+/// UserDefaults-backed computed properties rather than `@Published` stored ones, because an
+/// extension cannot add stored properties. Every setter announces `objectWillChange` before
+/// mutating, which is what the name says and what SwiftUI expects.
 extension Prefs {
 
     enum FK {
@@ -28,9 +24,8 @@ extension Prefs {
 
     // MARK: - Provider
     //
-    // Stored as a preset id plus optional overrides rather than a free-form blob: the preset gives
-    // a first-run user a working default in one click, the overrides let a power user point at a
-    // gateway we have never heard of.
+    // A preset id plus optional overrides: the preset gives a working default in one click, the
+    // overrides let someone point at a gateway we've never heard of.
 
     var providerId: String {
         get { defaults.string(forKey: FK.providerId) ?? "ollama-cloud" }
@@ -38,8 +33,7 @@ extension Prefs {
             guard let preset = Providers.preset(id: newValue) else { return }
             objectWillChange.send()
             defaults.set(newValue, forKey: FK.providerId)
-            // Switching provider rewrites URL + model to that preset's defaults. Carrying an Ollama
-            // model name over to Anthropic just produces a 404 forty minutes later.
+            // An Ollama model name carried over to Anthropic just 404s later.
             defaults.set(preset.baseUrl, forKey: FK.providerUrl)
             defaults.set(preset.model, forKey: FK.providerModel)
         }
@@ -67,8 +61,7 @@ extension Prefs {
 
     var providerNeedsKey: Bool { Providers.preset(id: providerId)?.needsKey ?? false }
 
-    /// Snapshot for the monitor task. Keys are omitted entirely for a local provider, so a cloud
-    /// key can never be accidentally sent to `127.0.0.1`.
+    /// Keys are omitted for a local provider, so a cloud key is never sent to `127.0.0.1`.
     func providerConfig() -> Providers.Config {
         let preset = Providers.preset(id: providerId) ?? Providers.presets[0]
         let keys = (preset.needsKey || providerId == "custom") ? apiKeys : []
@@ -110,7 +103,7 @@ extension Prefs {
         }
     }
 
-    /// Prefilled into the start form — most sessions are a continuation of the last one.
+    /// Prefilled into the start form.
     var lastTask: String {
         get { defaults.string(forKey: FK.focusTask) ?? "" }
         set {
@@ -120,8 +113,7 @@ extension Prefs {
         }
     }
 
-    /// Standing notes appended to every check — "my course PDFs open in Safari", that sort of
-    /// thing. Hand-written; the learner writes to a separate file and never edits this.
+    /// Standing notes appended to every check. Hand-written; the learner writes elsewhere.
     var focusNotes: String {
         get { defaults.string(forKey: FK.focusNotes) ?? "" }
         set {
@@ -130,8 +122,7 @@ extension Prefs {
         }
     }
 
-    /// The original always-on content classifier, kept as an opt-in extra layer. Off by default:
-    /// this is a focus tool now, and running both classifiers doubles the cost of every check.
+    /// The original content classifier, opt-in. Running both doubles the cost of a check.
     var contentRulesEnabled: Bool {
         get { defaults.bool(forKey: FK.contentRules) }
         set {
@@ -140,9 +131,8 @@ extension Prefs {
         }
     }
 
-    /// Experimental: capture "that was a false alarm" feedback and apply the learned policy. Off by
-    /// default, because a self-control tool that learns from you can be taught to stop stopping
-    /// you — see `learner/README.md` for the anti-gaming design.
+    /// Experimental. Off by default: a self-control tool that learns from you can be taught to
+    /// stop stopping you. See `learner/README.md` for the anti-gaming design.
     var learningEnabled: Bool {
         get { defaults.bool(forKey: FK.learning) }
         set {

@@ -14,17 +14,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Pluggable model providers for the focus classifier.
+ * Model providers for the focus classifier.
  *
- * The content-safety classifier spoke to exactly one backend because it only ever had one job. A
- * focus monitor runs a check every couple of minutes for hours, so *whose* model it is and *where*
- * it runs becomes the user's decision. On a phone that matters twice over: someone may want the
- * request to go to a local Ollama on their own laptop over Wi-Fi (private, free) rather than to
- * anybody's cloud.
- *
- * The request shape differs per provider and is the easy part. The *policy* — retry, key fail-over,
- * and the rule that a backend hiccup NEVER blocks the user — is the hard-won part (see
- * [OllamaClient]) and lives once, here, shared by all four kinds.
+ * The request shape differs per provider; the retry and key fail-over policy is shared, because
+ * the rule it enforces — a backend problem must never look like the user being off task — applies
+ * equally to all of them.
  */
 enum class ProviderKind { OLLAMA, OPENAI, ANTHROPIC, CUSTOM }
 
@@ -41,16 +35,9 @@ data class ProviderPreset(
 /**
  * One focus check.
  *
- * The two escape hatches are load-bearing and deliberately distinct, because conflating them is
- * how a monitor ends up locking someone out of their own phone:
- *
- *  - [undetermined] — an answer we couldn't read, or a screen we couldn't read. Not the user's
- *    fault, not evidence of anything. Never a block.
- *  - [transient] — the backend was busy or unreachable (5xx, 429, timeout, out of quota). Also
- *    never a block; the next tick simply tries again.
- *
- * [confidence] is the model's own 0–1 self-report. Not treated as calibrated — used only as a
- * threshold input for the learner, and to word the log line honestly.
+ * [undetermined] (unreadable answer or screen) and [transient] (backend busy, unreachable, or out
+ * of quota) are kept distinct from an off-task answer, and neither ever blocks. [confidence] is
+ * the model's own self-report and is not treated as calibrated.
  */
 data class FocusVerdict(
     val onTask: Boolean = true,
@@ -68,8 +55,6 @@ object Providers {
 
     private const val TAG = "Providers"
 
-    /** Transient-failure retry policy, carried over unchanged: the AI being busy must never cost
-     *  the user their session. */
     private const val MAX_ATTEMPTS = 3
     private const val BACKOFF_MS = 800L
     private const val TIMEOUT_SECONDS = 90L
@@ -84,12 +69,9 @@ object Providers {
     private val JSON = "application/json".toMediaType()
 
     /**
-     * What the settings picker offers. `CUSTOM` is not a fourth code path — it is `OPENAI` with the
-     * URL field unlocked. It exists as its own entry only so the picker can say "anything
-     * OpenAI-compatible" out loud.
-     *
-     * Note the two local options point at a LAN address, not localhost: on a phone `127.0.0.1` is
-     * the phone itself, which is not where anyone is running a vision model.
+     * `CUSTOM` is `OPENAI` with the URL field unlocked, listed separately so the picker can say
+     * "anything OpenAI-compatible". The local option points at a LAN address, not localhost: on a
+     * phone `127.0.0.1` is the phone.
      */
     val presets: List<ProviderPreset> = listOf(
         ProviderPreset(
@@ -142,18 +124,10 @@ object Providers {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * This prompt is the product. Two things about it are deliberate:
-     *
-     * 1. It is BIASED TOWARDS "on task" — the exact opposite of the content-safety classifier,
-     *    which flags when in doubt. That asymmetry follows from what a mistake costs. A missed
-     *    frame of off-task scrolling costs ten seconds. A false alarm interrupts real work, and
-     *    two or three of those in an afternoon and the app is uninstalled — at which point it
-     *    protects nothing at all. A focus monitor that cries wolf is worse than none.
-     *
-     * 2. It counts SUPPORTING work as on-task. Almost nothing real happens inside one app: "math
-     *    test prep" legitimately includes a YouTube lecture, a Reddit thread, a study-group chat,
-     *    past papers, and the file manager you found them in. A classifier that only accepts a PDF
-     *    viewer is measuring app choice, not focus.
+     * Biased towards "on task", which is the opposite of the content-safety classifier. The
+     * asymmetry follows from what a mistake costs: a missed frame of scrolling costs seconds, a
+     * false alarm interrupts real work and gets the app uninstalled. It also counts supporting
+     * work as on-task, because almost nothing real happens inside a single app.
      */
     val FOCUS_SYSTEM = """
         You decide whether ONE screenshot shows a person working on the task they declared.
@@ -200,9 +174,8 @@ object Providers {
     """.trimIndent()
 
     /**
-     * The per-check message. App name and title are passed as text as well as being visible in the
-     * image: small vision models read a supplied string far more reliably than they read small
-     * on-screen text, and on a phone the screen title is often the only unambiguous signal.
+     * App name and title are supplied as text as well as being visible in the image: a small
+     * vision model reads a given string far more reliably than small on-screen text.
      */
     fun userPrompt(task: String, appName: String, screenTitle: String, extraNotes: String = ""): String {
         val parts = mutableListOf(
@@ -214,7 +187,6 @@ object Providers {
         )
         val notes = extraNotes.trim()
         if (notes.isNotEmpty()) {
-            // Where the learner's accumulated "you were wrong about this before" lines land.
             parts += listOf("", "PREVIOUSLY CONFIRMED BY THE USER — treat these as settled:", notes)
         }
         parts += listOf("", "Is this screen part of that task? Answer in JSON.")
@@ -225,11 +197,8 @@ object Providers {
     // Parsing (pure — driven directly by the unit tests)
     // ---------------------------------------------------------------------------------------
 
-    /**
-     * Turn the model's JSON text into a verdict. Small models fence their JSON even when told not
-     * to (Gemma does it constantly), so fences are stripped rather than throwing away an otherwise
-     * good answer.
-     */
+    /** Small models fence their JSON even when told not to, so fences are stripped rather than
+     *  discarding an otherwise good answer. */
     fun parseFocusJson(content: String?): FocusVerdict {
         if (content == null) return FocusVerdict(reason = "parse-failed", undetermined = true)
         var text = content.trim()
@@ -246,8 +215,8 @@ object Providers {
             return FocusVerdict(reason = "screen unreadable", raw = text, undetermined = true)
         }
 
-        // A missing or non-boolean answer is not a "no" — it is a failure to answer, and treating
-        // it as a "no" would block people over a malformed reply.
+        // A missing answer is a failure to answer, not a "no": treating it as "no" would block
+        // people over a malformed reply.
         if (!obj.has("on_task") || obj.get("on_task") !is Boolean) {
             return FocusVerdict(reason = "no on_task field", raw = text, undetermined = true)
         }
@@ -310,8 +279,7 @@ object Providers {
                     put("model", cfg.model)
                     put("stream", false)
                     put("format", "json")
-                    // Keep the model resident between checks. At a 2-minute interval a cold reload
-                    // each time would cost more than the inference does.
+                    // At a 2-minute interval a cold model reload costs more than the inference.
                     put("keep_alive", "20m")
                     put("messages", JSONArray().apply {
                         put(JSONObject().apply { put("role", "system"); put("content", system) })
@@ -355,8 +323,7 @@ object Providers {
             )
 
             ProviderKind.OPENAI, ProviderKind.CUSTOM -> {
-                // A bare host gets /v1 appended; a URL that already ends in /v1 (LM Studio,
-                // OpenRouter, most gateways) is left alone — appending a second one is the single
+                // A URL that already ends in /v1 is left alone; appending a second one is the
                 // most common way people misconfigure this.
                 val prefix = if (base.endsWith("/v1")) base else "$base/v1"
                 BuiltRequest(
@@ -403,19 +370,13 @@ object Providers {
     /** Temporary backend trouble, worth retrying. Never evidence about the user. */
     fun isTransientCode(code: Int): Boolean = code in setOf(408, 429, 500, 502, 503, 504)
 
-    /**
-     * This *key* can't be used right now — out of credit (402/429) or rejected (401/403). Triggers
-     * fail-over to the next key. If every key is out the verdict stays transient: being out of API
-     * credit is our problem, and must never cost the user a block.
-     */
+    /** This key is out of credit or rejected — fail over to the next. If every key is out the
+     *  verdict stays transient: being out of API credit must never cost the user a block. */
     fun isKeyExhaustedCode(code: Int): Boolean = code in setOf(401, 402, 403, 429)
 
     /**
-     * Reject an unusable config before anything else happens.
-     *
-     * Split out so it can be unit-tested without a `Bitmap` (which a plain JVM test can't build),
-     * and because it is the guard for a whole class of failure: "our configuration is broken" must
-     * cost the user nothing. Returns the verdict to hand back, or null when the config is fine.
+     * Reject an unusable config before anything else happens, so "our configuration is broken"
+     * costs the user nothing. Split out so it is testable without a `Bitmap`.
      */
     fun validateConfig(cfg: Config): FocusVerdict? = when {
         cfg.model.isBlank() ->
@@ -456,9 +417,8 @@ object Providers {
                 }
             }
         } catch (e: IOException) {
-            // An Ollama on the LAN that isn't reachable lands here — the laptop is asleep, or the
-            // phone is on mobile data. Transient is right: the status line says so and the next
-            // tick retries.
+            // An unreachable LAN Ollama lands here: the laptop is asleep, or the phone is on
+            // mobile data.
             Attempt(FocusVerdict(reason = "AI unreachable: ${e.message}",
                 undetermined = true, transient = true))
         } catch (e: Exception) {
@@ -467,11 +427,7 @@ object Providers {
         }
     }
 
-    /**
-     * Run one focus check. Blocking — call it from a background dispatcher.
-     * [onKeyWorked] is called when fail-over succeeded on a non-first key, so the next call can
-     * start there.
-     */
+    /** Run one focus check. Blocking — call it from a background dispatcher. */
     fun evaluate(
         cfg: Config,
         bitmap: Bitmap,
@@ -527,11 +483,8 @@ object Providers {
         return lastTransient
     }
 
-    /**
-     * Cheap "can I talk to this at all?" probe for the settings screen, so a user finds out that
-     * their laptop's Ollama isn't reachable *now* rather than 40 minutes into a session.
-     * Returns null when things look fine, or a human-readable problem. Blocking.
-     */
+    /** "Can I talk to this at all?" probe for the settings screen. Null when fine, or a
+     *  human-readable problem. Blocking. */
     fun reachability(cfg: Config): String? {
         if (cfg.baseUrl.isBlank()) return "no server URL set"
         if (cfg.model.isBlank()) return "no model set"
@@ -556,7 +509,6 @@ object Providers {
                 }
                 if (!response.isSuccessful) return "server returned HTTP ${response.code}"
                 val body = response.body?.string().orEmpty()
-                // Reachable — now the more useful question: is the model actually there?
                 if (!body.contains(cfg.model)) {
                     "server is up, but '${cfg.model}' was not in its model list"
                 } else {

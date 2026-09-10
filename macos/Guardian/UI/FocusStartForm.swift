@@ -2,14 +2,9 @@ import SwiftUI
 
 /// "What are you working on?" — the start form.
 ///
-/// Deliberately compact enough to live inside the menu-bar popover as well as the dashboard,
-/// because a focus tool that takes two minutes to arm gets used on the days you least need it and
-/// skipped on the days you do. The task field is prefilled with last time's answer and focused on
-/// appear; everything else already has a working default from Settings.
-///
-/// The one place friction is added on purpose is the accountability picker: choosing "locked"
-/// means handing your passcode to future-you-who-wants-to-stop, so the consequences are spelled
-/// out next to the option rather than buried in a docs page.
+/// Compact enough to live inside the menu-bar popover as well as the dashboard, and prefilled so
+/// starting a session takes one keypress. The accountability picker is the exception: its
+/// consequences are spelled out next to each option rather than left in the docs.
 struct FocusStartForm: View {
     var onStarted: () -> Void
     var onCancel: () -> Void
@@ -137,7 +132,6 @@ struct FocusStartForm: View {
                 .buttonStyle(.plain)
             }
             if let warning = lockedWarning {
-                // Say the awkward part out loud before they commit, not after.
                 Text("⚠ " + warning)
                     .font(.system(size: 9))
                     .foregroundColor(LCARS.gold)
@@ -186,9 +180,8 @@ struct FocusStartForm: View {
         return bits.joined(separator: "  ·  ")
     }
 
-    /// Store the *delta* against the saved defaults, not a copy of the list. If you later edit your
-    /// default watchlist mid-session, a session started before that edit still tracks it — which is
-    /// what people expect, and what a snapshot would silently get wrong.
+    /// The delta against the saved defaults, not a copy: editing the defaults later should still
+    /// affect a session started before the edit.
     private func applySelection(_ selected: Set<String>) {
         let defaults = prefs.monitoredApps
         extraApps = selected.subtracting(defaults)
@@ -204,8 +197,7 @@ struct FocusStartForm: View {
             return
         }
         guard !(accountability == .locked && minutes == 0) else {
-            // An open-ended locked session plus a forgotten passcode is the one shape that could
-            // genuinely trap someone. Refuse to create it.
+            // Open-ended + locked + a forgotten passcode could genuinely trap someone.
             error = "A locked session needs an end time — open-ended locked sessions aren't allowed."
             return
         }

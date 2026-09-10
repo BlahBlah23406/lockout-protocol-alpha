@@ -1,10 +1,6 @@
 import SwiftUI
 
-/// The main dashboard, reorganised around the focus session.
-///
-/// The top answers "is a session running, what did I say I was doing, and how is it going"; the
-/// controls below start or end one. The old always-on Start/Stop pair is gone, because monitoring
-/// is no longer a mode you leave running — it begins and ends with a session.
+/// The main dashboard: session state on top, controls below, activity log at the bottom.
 struct ContentView: View {
     @StateObject private var prefs = Prefs.shared
     @StateObject private var monitor = MonitorService.shared
@@ -143,7 +139,7 @@ struct ContentView: View {
         row("PROVIDER", prefs.providerModel.isEmpty ? "not set" : prefs.providerModel, LCARS.blue)
     }
 
-    /// Ending a locked session early is the commitment being broken, so it costs the passcode.
+    /// Ending a locked session early costs the passcode.
     private func requestEnd() {
         guard let session = sessions.current else { return }
         if prefs.pinSet && session.accountability.requiresPasscodeToEnd {

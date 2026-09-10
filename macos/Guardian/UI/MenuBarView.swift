@@ -1,14 +1,9 @@
 import SwiftUI
 
-/// The menu-bar popover — the front door of the app on macOS.
+/// The menu-bar popover: start a session, or see the one running.
 ///
-/// It is built around the two things people actually do, in this order: start a session, and
-/// glance at whether one is running. Opening a 720×560 dashboard with an activity log to answer
-/// "am I being watched right now?" is enough friction that people stop asking, so the answer lives
-/// here, one click from the menu bar, and the dashboard becomes the secondary destination.
-///
-/// The whole start flow fits in the popover. Nothing about declaring "revising integration by
-/// parts, 50 minutes" needs a window.
+/// The whole start flow fits here — nothing about declaring "revising integration by parts, 50
+/// minutes" needs a window — and the dashboard becomes the secondary destination.
 struct MenuBarView: View {
     @StateObject private var monitor = MonitorService.shared
     @StateObject private var prefs = Prefs.shared
@@ -53,8 +48,8 @@ struct MenuBarView: View {
     private var header: some View {
         let session = sessions.current
         let locked = session?.accountability == .locked
-        // The dot is grey when nothing is running. The icon should never suggest it is watching at
-        // a moment when it is not — being able to tell at a glance is not a nicety for this tool.
+        // Grey when nothing is running: the icon should never suggest it is watching when it
+        // isn't.
         let tint = session == nil ? LCARS.lilac : (locked ? LCARS.red : LCARS.readout)
 
         return HStack(spacing: 8) {
@@ -107,15 +102,14 @@ struct MenuBarView: View {
         }
     }
 
-    /// One click to run the same session again — same task, same settings as last time.
+    /// Run the same session again: same task, same settings.
     private func startLast() {
         let session = FocusSession(task: prefs.lastTask,
                                    plannedMinutes: prefs.focusMinutes,
                                    intervalSeconds: prefs.focusInterval,
                                    accountability: prefs.focusAccountability,
                                    providerId: prefs.providerId)
-        // The same guard the form applies: an open-ended locked session plus a forgotten passcode
-        // is the one shape that could genuinely trap someone, so it is never created silently.
+        // The same guard the form applies: open-ended + locked is never created silently.
         guard !(session.accountability == .locked && session.plannedMinutes == 0),
               !session.watchlist(defaults: prefs.monitoredApps).isEmpty else {
             composing = true
@@ -198,8 +192,8 @@ struct MenuBarView: View {
         }
     }
 
-    /// A locked session holds its own exit. This is the passcode's real job — not stopping you
-    /// using the Mac, but stopping you quietly cancelling the commitment you made.
+    /// A locked session holds its own exit: the passcode stops you quietly cancelling the
+    /// commitment, not using the Mac.
     private func protectedAction(_ action: PendingAction) {
         let locked = sessions.current?.accountability.requiresPasscodeToEnd ?? false
         if prefs.pinSet && locked {
@@ -225,8 +219,8 @@ struct MenuBarView: View {
             sessions.end(reason: "ended by user")
             monitor.stop()
         case .quit:
-            // Quitting mid-session is the one bypass macOS cannot prevent, so a locked session
-            // makes it cost the passcode and tells the partner on the way out (see AppDelegate).
+            // Quitting mid-session is the one bypass macOS cannot prevent; AppDelegate tells the
+            // partner on the way out.
             NSApp.terminate(nil)
         }
     }

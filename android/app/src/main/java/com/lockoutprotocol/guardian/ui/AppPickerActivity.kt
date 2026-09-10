@@ -15,21 +15,15 @@ import androidx.appcompat.app.AppCompatActivity
 import com.lockoutprotocol.guardian.data.Prefs
 
 /**
- * Pick which apps are watched. Two jobs, one screen.
- *
- * Launched plainly it edits the saved default watchlist, exactly as the inline picker in
- * [SettingsActivity] used to. Launched with [EXTRA_SELECTION] and `startActivityForResult` it
- * becomes a session-scoped picker: [FocusStartActivity] uses it to tick one extra app for today
- * without touching the defaults, and gets the new selection back rather than it being saved.
- *
- * Extracted from `SettingsActivity` so the two callers share one list, one search box and one set
- * of labels. A second copy would have drifted within a week.
+ * Pick which apps are watched. Two jobs, one screen: launched plainly it edits the saved default
+ * watchlist; launched with [EXTRA_SELECTION] it returns a session-scoped choice instead of saving
+ * it.
  */
 class AppPickerActivity : AppCompatActivity() {
 
     private lateinit var prefs: Prefs
 
-    /** True when we own the saved watchlist; false when we're editing a session's selection. */
+    /** True when we own the saved watchlist; false when editing a session's selection. */
     private var editingDefaults = true
     private val selected = mutableSetOf<String>()
     private var apps: List<Pair<String, String>> = emptyList()
@@ -144,7 +138,7 @@ class AppPickerActivity : AppCompatActivity() {
     }
 
     companion object {
-        /** Present = session-scoped mode; the chosen set comes back in the result under this key. */
+        /** Present = session-scoped; the chosen set comes back in the result under this key. */
         const val EXTRA_SELECTION = "selection"
         const val EXTRA_TITLE = "title"
         const val EXTRA_NOTE = "note"

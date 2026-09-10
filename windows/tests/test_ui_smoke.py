@@ -1,11 +1,7 @@
-"""Construct every window offscreen.
+"""Construct every window offscreen, to catch widget-call typos the logic tests can't.
 
-The logic tests never touch Tk, so a typo in a widget call — a bad option name, a method that
-moved, a missing import — would otherwise only show up when a user opens that screen. This builds
-each window once, parked off the visible desktop, and asserts it did not raise.
-
-It is a smoke test, not a UI test: it proves the screens can be built, not that they look right.
-Skipped automatically where there is no display (CI containers), so it never blocks a build.
+A smoke test, not a UI test: it proves the screens build, not that they look right. Skipped where
+there is no display.
 """
 
 import sys
@@ -48,7 +44,7 @@ class TestWindowsConstruct(unittest.TestCase):
         tkroot.set_root(cls.root)
 
     def _built(self, window):
-        """Force a layout pass — most widget-option errors only fire during geometry work."""
+        """Force a layout pass; most widget-option errors only fire during geometry work."""
         self.root.update_idletasks()
         self.addCleanup(lambda: self._safe_destroy(window))
         return window
@@ -94,7 +90,7 @@ class TestWindowsConstruct(unittest.TestCase):
                                  accountability=ACC_LOCKED))
 
     def test_block_screen_without_a_session(self):
-        """The content-rules block still has to render — that path has no session object."""
+        """The content-rules path has no session object and still has to render."""
         self._block(None)
 
 

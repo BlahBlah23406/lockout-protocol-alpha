@@ -87,34 +87,25 @@ class TestGuardian(unittest.TestCase):
         self.assertIsNone(SecretStore.get("test_key"))
 
     def test_no_api_key_is_baked_into_the_source(self):
-        """There must be NO fallback key baked into the app.
+        """No fallback key may be baked into the app.
 
-        This test used to assert the opposite — that a specific key literal was present — because
-        an earlier revision shipped a real Ollama Cloud key in `prefs.py` so that first run "just
-        worked". That key was in a public repo, which means it was public. It is gone, and this
-        test guards against it, or anything like it, coming back.
-
-        It reads the SOURCE rather than the resolved value on purpose. A machine that ran the old
-        build still has that key in its DPAPI store, and whether a user has a key configured is
-        their business — the defect being guarded is a credential in the repository.
+        An earlier revision shipped a real Ollama Cloud key as a literal in `prefs.py`, in a public
+        repo. This reads the source rather than the resolved value: a machine that ran the old
+        build still has that key in its DPAPI store, and a user's own configured key is their
+        business. The defect being guarded is a credential in the repository.
         """
         source = (WINDOWS_DIR / "guardian" / "models" / "prefs.py").read_text(encoding="utf-8")
 
         self.assertNotIn("670dd2703b9a4b7381a6cefcc", source,
                          "the retired hardcoded API key is back in prefs.py")
 
-        # A generic shape check, so the next hardcoded credential is caught too rather than only
-        # this one. Ollama keys are 32 hex chars, a dot, then 24 base62 — distinctive enough to
-        # match without flagging ordinary strings.
+        # A shape check, so the next hardcoded credential is caught too. Distinctive enough not
+        # to flag ordinary strings.
         self.assertIsNone(re.search(r"[0-9a-f]{32}\.[A-Za-z0-9]{20,}", source),
                           "something shaped like an API key is hardcoded in prefs.py")
 
     def test_api_key_defaults_to_empty(self):
-        """With nothing configured, reading the key yields "" rather than a built-in value.
-
-        Skipped on a machine that has a key stored or in the environment, because there is nothing
-        to assert there — the point is only that the app never invents one.
-        """
+        """With nothing configured, reading the key yields "" rather than inventing one."""
         from guardian.models.prefs import K
 
         if SecretStore.get(K.ollama_key) or any(
@@ -128,14 +119,10 @@ class TestGuardian(unittest.TestCase):
     @unittest.skipUnless(os.environ.get("LOCKOUT_LIVE_TESTS", "").strip(),
                          "live test: set LOCKOUT_LIVE_TESTS=1 and configure an API key")
     def test_ollama_cloud_evaluation(self):
-        """Captures the real screen and sends it to the configured provider.
+        """A real round trip: captures the screen and sends it to the configured provider.
 
-        Opt-in, because it needs three things a test suite has no right to assume: a display, a
-        network, and someone's paid API credit. It was previously unconditional, which meant the
-        whole suite failed on CI with "AI quota exhausted" — a red build that says nothing about
-        the code. The offline tests cover the parse, retry, fail-over and never-block behaviour;
-        this one only answers "does a real round-trip work end to end", which is worth having but
-        only when you ask for it.
+        Opt-in, because it needs a display, a network and someone's paid API credit — none of
+        which a test suite should assume. The offline tests cover parse, retry and fail-over.
         """
         p = Prefs.shared()
         img = screen_capturer.capture()

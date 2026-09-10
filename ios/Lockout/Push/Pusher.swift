@@ -1,12 +1,10 @@
 import Foundation
 
-/// Zero-setup push alerts via ntfy — the same mechanism as the other three ports, for the same
-/// reason: no account, no email server, and your partner just subscribes a free app to a private
-/// topic string.
+/// Push alerts via ntfy: no account, no email server, your partner subscribes a free app to a
+/// private topic.
 ///
-/// Deliberately has no dependency on `Prefs` or any actor. The shield action extension needs to be
-/// able to send an alert from its own process with a few megabytes of memory and no app running,
-/// so the config is passed in as plain values.
+/// No dependency on `Prefs` or any actor, so the shield action extension can send from its own
+/// process with the app not running.
 enum Pusher {
 
     struct Config: Sendable {
@@ -15,8 +13,7 @@ enum Pusher {
         let topic: String
     }
 
-    /// Read the config straight out of shared storage. Used by the extensions, which can't reach
-    /// the app's `Prefs`.
+    /// For the extensions, which can't reach the app's `Prefs`.
     static func configFromShared() -> Config {
         let defaults = UserDefaults(suiteName: SessionStore.appGroup) ?? .standard
         let enabled = defaults.object(forKey: "push_enabled") == nil
@@ -39,8 +36,7 @@ enum Pusher {
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"
         req.httpBody = Data(message.utf8)
-        // ntfy header values must be ASCII, so anything else is stripped rather than allowed to
-        // break the whole request over one em dash.
+        // ntfy header values must be ASCII; one em dash would otherwise break the request.
         req.setValue(asciiHeader(title), forHTTPHeaderField: "Title")
         req.setValue("high", forHTTPHeaderField: "Priority")
         req.setValue("rotating_light", forHTTPHeaderField: "Tags")

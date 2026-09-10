@@ -1,12 +1,10 @@
 import FamilyControls
 import Foundation
 
-/// Settings, in the App Group's `UserDefaults` so the extensions can read what they need.
+/// Settings, in the App Group's `UserDefaults` so the extensions can read them.
 ///
-/// Secrets are the exception: API keys and the passcode hash go in the Keychain with an access
-/// group, not into shared defaults. A shared defaults plist is readable by anything in the group,
-/// and while that is only our own three extensions today, a key sitting in a plist is a key
-/// waiting to be somewhere it shouldn't.
+/// Secrets are the exception: API keys and the passcode hash go in the Keychain, because a shared
+/// defaults plist is readable by anything in the group and survives in backups as plain text.
 @MainActor
 final class Prefs: ObservableObject {
 
@@ -15,8 +13,8 @@ final class Prefs: ObservableObject {
     private let d: UserDefaults
 
     private init() {
-        // Falls back to `.standard` if the App Group is missing, so a misconfigured build still
-        // runs and `ShieldController.diagnose()` can explain why nothing is shielded.
+        // Falls back to `.standard` if the App Group is missing, so `diagnose()` can explain
+        // why nothing is shielded rather than the app crashing.
         d = UserDefaults(suiteName: SessionStore.appGroup) ?? .standard
     }
 
@@ -43,8 +41,7 @@ final class Prefs: ObservableObject {
             guard let preset = Providers.preset(id: newValue) else { return }
             objectWillChange.send()
             d.set(newValue, forKey: K.providerId)
-            // Switching provider rewrites URL + model. Keeping an Ollama model name after moving
-            // to Anthropic just produces a 404 at the worst moment.
+            // An Ollama model name carried over to Anthropic just 404s at the worst moment.
             d.set(preset.baseUrl, forKey: K.providerUrl)
             d.set(preset.model, forKey: K.providerModel)
         }
@@ -62,8 +59,7 @@ final class Prefs: ObservableObject {
                                              forKey: K.providerModel) }
     }
 
-    /// Keys are omitted for a provider that doesn't need one, so a cloud key can never be posted
-    /// to a machine on the local network.
+    /// Keys are omitted for a provider that doesn't need one.
     func providerConfig() -> Providers.Config {
         let preset = Providers.preset(id: providerId) ?? Providers.presets[0]
         let keys = (preset.needsKey || providerId == "custom") ? apiKeys : []
@@ -78,8 +74,7 @@ final class Prefs: ObservableObject {
         set { objectWillChange.send(); Keychain.set("api_key", newValue) }
     }
 
-    /// Backup key. When the active one runs out of quota the client fails over and remembers the
-    /// switch, so the two alternate as each is exhausted rather than one being tried forever.
+    /// Backup key. The client fails over and remembers the switch, so the two alternate.
     var apiKey2: String {
         get { Keychain.get("api_key2") ?? "" }
         set { objectWillChange.send(); Keychain.set("api_key2", newValue) }
@@ -144,8 +139,7 @@ final class Prefs: ObservableObject {
 
     var focusMinutes: Int {
         get {
-            // `integer(forKey:)` returns 0 for both "unset" and a deliberate open-ended 0, so the
-            // presence of the key is what distinguishes them.
+            // `integer(forKey:)` returns 0 for both "unset" and a deliberate 0.
             guard d.object(forKey: K.focusMinutes) != nil else { return 50 }
             return max(d.integer(forKey: K.focusMinutes), 0)
         }
@@ -161,17 +155,15 @@ final class Prefs: ObservableObject {
         }
     }
 
-    /// Standing notes handed to the model with every plan — "Notion is where my notes live", that
-    /// sort of thing. On iOS these matter more than elsewhere, because app *names* are all the
-    /// model gets to work with.
+    /// Standing notes handed to the model with every plan. They matter more here than elsewhere,
+    /// because app names are all the model gets.
     var focusNotes: String {
         get { d.string(forKey: K.focusNotes) ?? "" }
         set { objectWillChange.send(); d.set(String(newValue.prefix(1500)), forKey: K.focusNotes) }
     }
 
-    /// The app selection, remembered between sessions so the picker isn't a chore every time.
-    /// `FamilyActivitySelection` is `Codable`, which is the only reason this is possible — the
-    /// tokens inside it are otherwise opaque.
+    /// Remembered between sessions. Possible only because `FamilyActivitySelection` is `Codable`;
+    /// the tokens inside are otherwise opaque.
     var savedSelection: FamilyActivitySelection {
         get {
             guard let data = d.data(forKey: K.selection),
@@ -198,8 +190,7 @@ final class Prefs: ObservableObject {
         set { objectWillChange.send(); d.set(newValue, forKey: K.pushEnabled) }
     }
 
-    /// Private alert code. Generated once and treated as the secret it is — anyone who knows it
-    /// can read your alerts.
+    /// Private alert code, and a secret: anyone who knows it can read your alerts.
     var ntfyTopic: String {
         get {
             if let existing = Keychain.get("ntfy_topic"), !existing.isEmpty { return existing }

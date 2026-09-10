@@ -1,23 +1,16 @@
 import Foundation
 
-/// Append-only record of what the app decided, in the same JSONL format as the other three ports.
+/// Append-only record of what the app decided, in the same JSONL format as the other ports so a
+/// mixed log reads without special cases.
 ///
-/// The iOS rows are a different *shape* of event, because the decisions are different: there is no
-/// per-screen verdict to log, so what gets recorded is one shield plan per session plus the
-/// unshields that follow. The field names are kept identical anyway, so `learner/` can read a
-/// mixed log from someone who uses the desktop app and the phone app together without special
-/// cases — which is the normal way this would be used.
+/// iOS logs a different shape of event, since there is no per-screen verdict:
 ///
-/// The mapping, stated plainly so nobody has to reverse-engineer it from the rows:
-///
-///     verdict "shield_plan"  action "blocked"  — an app the plan shut for this session
+///     verdict "shield_plan"  action "blocked"  — an app the plan shut
 ///     verdict "shield_plan"  action "allowed"  — an app the plan left open
-///     verdict "off_task"     action "blocked"  — the user hit a shield (they opened a shut app)
-///     feedback "false_alarm"                    — they unshielded it, i.e. the plan was wrong
+///     verdict "off_task"     action "blocked"  — the user hit a shield
+///     feedback "false_alarm"                    — they unshielded it
 ///
-/// That last pairing is the useful one: on iOS an unshield IS a false-alarm signal, with no extra
-/// button needed, because nobody unshields an app they agreed should be shut. It is the closest
-/// thing to free training data anywhere in this project.
+/// The last pairing is free training data: nobody unshields an app they agreed should be shut.
 enum Judgements {
 
     static let maxLines = 20_000
@@ -28,8 +21,7 @@ enum Judgements {
         SessionStore.containerDirectory().appendingPathComponent("judgements.jsonl")
     }
 
-    /// One row per app in the plan, so the learner sees the same (task, app) pairs it sees from
-    /// the desktop clients.
+    /// One row per app in the plan, matching the (task, app) pairs the desktop clients log.
     static func recordSessionStart(_ session: FocusSession, plan: ShieldPlan.Decision,
                                    provider: String) {
         for token in plan.shield {
@@ -56,7 +48,7 @@ enum Judgements {
         return jid
     }
 
-    /// They unshielded it — which is the same information a "false alarm" tap carries elsewhere.
+    /// An unshield carries the same information as a "false alarm" tap elsewhere.
     static func recordUnshield(_ judgementId: String, note: String = "") {
         append([
             "id": "\(judgementId)#fb",
@@ -79,13 +71,11 @@ enum Judgements {
             "task": session.task,
             "app": app,
             "app_name": "",
-            // iOS has no window title to report, and inventing one would poison the learner's
-            // title patterns with fiction. Empty is the honest value.
+            // No window title exists here; inventing one would poison the learner's patterns.
             "window_title": "",
             "verdict": verdict,
             "reason": String(reason.prefix(500)),
-            // No per-screen confidence exists here. 0 means "no opinion", which is what the
-            // learner's calibration already treats it as.
+            // No per-screen confidence exists; 0 means "no opinion".
             "confidence": 0,
             "action": action,
             "provider": provider,
@@ -111,8 +101,7 @@ enum Judgements {
         }
     }
 
-    /// Fold the shield extension's spool file into the log. The extension can't afford to do this
-    /// itself, so it appends one-line events and the app tidies up on next launch.
+    /// Fold the shield extension's spool file into the log on next launch.
     static func drainSpool() {
         queue.async {
             let spool = SessionStore.containerDirectory()
@@ -149,8 +138,7 @@ enum Judgements {
         }
     }
 
-    /// Hand the log to the learner. There is no `adb pull` on iOS, so the app has to be able to
-    /// export it — this returns a URL a share sheet can offer.
+    /// There is no `adb pull` on iOS, so the app exports the log itself via a share sheet.
     static func exportURL() -> URL? {
         FileManager.default.fileExists(atPath: fileURL.path) ? fileURL : nil
     }

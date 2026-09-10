@@ -17,14 +17,9 @@ class AppPickerWindow(tk.Toplevel):
 
     def __init__(self, master, selection=None, on_done=None, title=None, subtitle=None,
                  note=None):
-        """Two jobs, one window.
-
-        With no arguments it edits the saved default watchlist, exactly as before. Passed a
-        `selection` and an `on_done` callback it becomes a session-scoped picker: the focus start
-        screen uses it to tick one extra app for today without touching the defaults. Keeping this
-        as one widget rather than two means the emulator tagging, the rescan and the search only
-        exist once.
-        """
+        """Two jobs, one window: with no arguments it edits the saved default watchlist; with
+        `selection` and `on_done` it becomes a session-scoped picker that returns the choice
+        instead of saving it."""
         super().__init__(master)
         self.prefs = Prefs.shared()
         self.on_done = on_done
@@ -165,7 +160,7 @@ class AppPickerWindow(tk.Toplevel):
 
     def _done(self):
         if self.on_done is not None:
-            self.on_done(set(self.selection))       # session-scoped: caller decides what to do
+            self.on_done(set(self.selection))       # session-scoped: the caller decides
         else:
             self.prefs.monitored_apps = self.selection
         self.destroy()

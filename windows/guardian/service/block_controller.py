@@ -52,8 +52,8 @@ class BlockController:
 
     def show(self, identifier: str, app_name: str, reason: str,
              session=None, judgement_id: str = "") -> None:
-        """Raise the overlay. `session` decides which accountability level the block is shown at;
-        `judgement_id` ties a later "false alarm" press back to the exact check that caused it."""
+        """`session` sets the accountability level; `judgement_id` ties a later "false alarm"
+        press back to the check that caused this block."""
         with self._lock:
             if self._current is not None:
                 return                      # one block at a time
@@ -100,12 +100,8 @@ class BlockController:
     # ---- exits -------------------------------------------------------------------------
 
     def finish_override(self) -> None:
-        """"Override" — keep using the app. Grants a 5-minute reprieve and tears down the overlay.
-        In a locked session the passcode was already checked in `block_view`.
-
-        The override also pauses the *session* briefly, not just this app. Being re-challenged 90
-        seconds after you deliberately said "yes, I need this" is how a monitor teaches people to
-        ignore it, and an override the user paid for with a passcode should buy a little peace."""
+        """Keep using the app. Pauses the whole session briefly, not just this app: being
+        re-challenged 90 seconds after saying "yes, I need this" teaches people to ignore it."""
         cur = self._current
         session = self._session
         if cur:
@@ -119,13 +115,12 @@ class BlockController:
         self._teardown()
 
     def mark_false_alarm(self) -> None:
-        """Experimental: record that this block was wrong, for the learner to pick up later."""
+        """Record that this block was wrong, for the learner to pick up later."""
         if self._judgement_id:
             judgements.add_feedback(self._judgement_id, judgements.FB_FALSE_ALARM)
 
     def _alert_override(self, cur, session) -> None:
-        """A locked session that gets overridden is exactly the event a partner signed up to hear
-        about — the block itself is only half the story."""
+        """An override on a locked session is the event the partner signed up to hear about."""
         from ..models.prefs import Prefs
         from ..push import pusher
         prefs = Prefs.shared()

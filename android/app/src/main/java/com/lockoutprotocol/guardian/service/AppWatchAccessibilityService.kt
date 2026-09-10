@@ -131,19 +131,12 @@ class AppWatchAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * A short text label for what is on screen right now — the closest thing Android has to a
-     * window title.
+     * The closest thing Android has to a window title, which the focus classifier leans on: a
+     * small vision model reads a supplied string far more reliably than a 12sp toolbar.
      *
-     * The focus classifier leans on this heavily. On a phone the screenshot is small and the model
-     * is often a 7B, so a supplied string like "Integration by parts | Khan Academy" settles a
-     * verdict that the pixels alone would leave ambiguous. It is passed as text as well as being
-     * visible in the image, because a small vision model reads a given string far more reliably
-     * than it reads a 12sp toolbar.
-     *
-     * There is no single API for it, so this takes the first of: the window's own title (set by
-     * apps that bother), the browser URL bar if there is one (the single most informative node on
-     * a phone), then the longest short-ish text near the top of the tree. Returns "" rather than
-     * guessing badly — a missing title costs a little accuracy, never a block.
+     * There is no single API, so this takes the first of: the window's own title, the browser URL
+     * bar, then the longest title-like text near the top of the tree. Returns "" rather than
+     * guessing — a missing title costs accuracy, never a block.
      */
     fun topScreenTitle(): String = try {
         val top = windows
@@ -160,11 +153,8 @@ class AppWatchAccessibilityService : AccessibilityService() {
         ""
     }
 
-    /**
-     * The URL from a browser's address bar, when the foreground app is a browser. Chrome and most
-     * WebView-based browsers expose it as an editable node, which is what makes it findable
-     * without knowing anything about the specific browser.
-     */
+    /** The URL from a browser's address bar. Most browsers expose it as an editable node with a
+     *  known view id. */
     private fun browserUrl(root: android.view.accessibility.AccessibilityNodeInfo?): String? {
         if (root == null) return null
         for (id in URL_BAR_IDS) {
@@ -176,18 +166,15 @@ class AppWatchAccessibilityService : AccessibilityService() {
         return null
     }
 
-    /**
-     * Fallback: the most title-like text in the top of the view tree. Bounded to a shallow walk —
-     * this runs on every check, and a full traversal of a busy app's tree is not free.
-     */
+    /** Fallback: the most title-like text near the top of the tree. Bounded, because this runs
+     *  on every check and a full traversal of a busy app's tree is not free. */
     private fun headerText(root: android.view.accessibility.AccessibilityNodeInfo?): String? {
         if (root == null) return null
         var best: String? = null
         fun walk(node: android.view.accessibility.AccessibilityNodeInfo?, depth: Int) {
             if (node == null || depth > HEADER_MAX_DEPTH) return
             val text = node.text?.toString()?.trim()
-            // A title is short and non-empty; body copy and button labels are excluded by length
-            // and by preferring the longest candidate that still looks like a heading.
+            // Short and non-empty; body copy is excluded by length.
             if (!text.isNullOrEmpty() && text.length in 3..80) {
                 if ((best?.length ?: 0) < text.length) best = text
             }
@@ -271,8 +258,8 @@ class AppWatchAccessibilityService : AccessibilityService() {
             "com.duckduckgo.mobile.android:id/omnibarTextInput",
         )
 
-        // Bounds on the fallback title walk. This runs on every check, and a full traversal of a
-        // busy app's node tree is not free — on a mid-range phone it is measurable battery.
+        // Bounds on the fallback title walk: on a mid-range phone a full traversal is measurable
+        // battery.
         private const val HEADER_MAX_DEPTH = 4
         private const val HEADER_MAX_CHILDREN = 12
     }

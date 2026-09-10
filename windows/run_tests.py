@@ -2,10 +2,8 @@
 
     python run_tests.py
 
-`python -m unittest discover -s tests -t .` also works, but this script is the documented entry
-point because it puts `windows/` on `sys.path` first — every suite imports `guardian.*`, and
-without that the discovery run fails with an ImportError that looks like a missing dependency
-rather than a path problem.
+`python -m unittest discover -s tests -t .` also works. This script exists because it puts
+`windows/` on `sys.path` first, without which the ImportError looks like a missing dependency.
 """
 
 import sys

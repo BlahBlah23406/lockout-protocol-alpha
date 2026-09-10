@@ -1,271 +1,295 @@
 # Lockout Protocol
 
-**Say what you sat down to do. It checks whether you're actually doing it.**
+A focus monitor for Windows, macOS, Android and iOS.
 
-You type `revising integration by parts for Friday's test`, pick 50 minutes, and press start. Every
-couple of minutes it looks at whichever app you're in, asks a model *"is this screen part of that?"*,
-and if the answer is clearly no, it interrupts you.
+You type what you are working on — `revising integration by parts for Friday's test` — and pick a
+length. Every couple of minutes it looks at whichever app you are in, asks a model whether that
+screen is part of that task, and interrupts you when it clearly is not.
 
-For **Windows**, **macOS**, **Android**, and **iOS**.
-
-```
-      you: "revising integration by parts for Friday's test"   ·   50 min   ·   locked
-                                    │
-                        every 2 min ▼   (only while a session is running)
-                    ┌───────────────────────────────────────┐
-                    │  which app is in front?               │
-                    │  is it on my watchlist for today?     │
-                    └───────────────┬───────────────────────┘
-                          one frame ▼
-                    ┌───────────────────────────────────────┐
-                    │  a model you chose — local or hosted  │
-                    │  "is this screen part of that task?"  │
-                    └───────┬───────────────────────┬───────┘
-                    on task │                       │ off task
-                            ▼                       ▼
-                     logged, next check      ┌──────────────────────────┐
-                                             │  YOU SAID YOU WERE:      │
-                                             │  revising integration…   │
-                                             │                          │
-                                             │  [ Not now · close it ]  │
-                                             │  [ Override · passcode ] │
-                                             └──────────────────────────┘
-                                                 + your partner is told
-```
-
-> **Alpha.** Windows, Android and macOS are compiled and tested in CI (see [Status](#status)). iOS is
-> written and has never been built — it needs an Apple entitlement no CI runner can hold. Expect
-> rough edges, and read the [honest status table](#status) before trusting any of it.
-
----
-
-## Downloads
-
-| Platform | Get it | Notes |
-|---|---|---|
-| **Windows 10/11** | [Releases](../../releases/latest) → `LockoutProtocol-windows.zip` | Unzip, run `LockoutProtocol.exe`. Unsigned, so SmartScreen warns once — More info → Run anyway. |
-| **Android 14+** | [Releases](../../releases/latest) → `.apk` | Debug-signed. Allow "install unknown apps" for your browser. |
-| **macOS 14+** | build it: `cd macos && xcodegen generate && open Guardian.xcodeproj` | Notarising a distributable needs a paid Apple account. |
-| **iOS 16+** | build it: see [ios/README.md](ios/README.md) | Needs Apple's `family-controls` entitlement, granted by hand per developer account. |
-
-Running from source instead: [Windows](#run-from-source), [macOS](macos/README.md),
-[Android](android/README.md), [iOS](ios/README.md).
-
----
-
-## What makes it different
-
-**It only watches during a session.** Not "watches and discards" — when no session is running, no
-screenshot is taken at all. That's a test, not a promise:
-`windows/tests/test_monitor_flow.py::test_idle_never_touches_the_screen`.
-
-**It judges the screen, not the app.** YouTube showing a lecture on your topic is on task. YouTube
-showing a gaming stream isn't. Blunt app blockers can't tell those apart; that distinction is the
-whole reason this exists.
-
-**Your model, your choice — including one that never leaves your machine.** Local Ollama, Ollama
-Cloud, OpenAI, Anthropic, or anything OpenAI-compatible (LM Studio, llama.cpp, vLLM, OpenRouter, a
-company gateway). Point it at a local model and the running cost is zero and nothing is uploaded.
-
-**Two levels of accountability, and you pick per session.**
-
-| | Self-managed | Locked |
-|---|---|---|
-| It blocks you | yes | yes |
-| Dismissing it | you, no passcode | **passcode required** |
-| Ending early | you, any time | **passcode required** |
-| Partner notified | no | every block and every override |
-
-Start with self-managed. The interruption and the log are the accountability; you don't need a
-passcode to benefit. `Locked` is for when *"I'll just check one thing"* has already won too often —
-give the passcode to someone else, or use one you won't remember.
-
-**It cannot lock you out.** Closing a blocked app never needs a passcode, at any level. A screen the
-model can't read is never a block. A model that's down, out of quota, or unreachable is never a
-block. Those aren't fail-safes bolted on — they're
-tested directly, in [`TestNothingElseEverBlocks`](windows/tests/test_monitor_flow.py) —
-eight cases whose only job is to prove nothing else ever blocks.
-
-**A watchlist you can bend for one afternoon.** Your default list plus anything you add just for
-today, minus anything you excuse just for today — without editing your permanent settings and
-forgetting to put them back.
-
-**Start it in three seconds.** macOS menu-bar item, Windows tray panel, Android home-screen widget,
-iOS home-screen and Lock Screen widget. A focus tool that takes four taps to arm gets used on the
-days you least need it.
+The difference from a normal app blocker is that it judges the screen, not the app. A lecture on
+YouTube is part of maths revision. A gaming stream on YouTube is not. An app-list blocker has to
+allow both or block both.
 
 ---
 
 ## Status
 
-Nothing below is aspirational. "Verified" means a command was run and passed.
-
 | | Windows | Android | macOS | iOS |
 |---|---|---|---|---|
-| Compiles | ✅ | ✅ | ✅ Xcode 16.4 | ⚠️ not attempted |
-| Unit tests | ✅ 109 | ✅ 58 | ✅ 12 | — none written |
-| Runs end to end | ✅ | ✅ APK builds | ✅ `xcodebuild test` | ⚠️ |
-| Packaged build launches | ✅ | ✅ | — unsigned only | ⚠️ |
-| Structure checked | ✅ | ✅ | ✅ | ✅ |
+| Compiles | yes | yes | yes (Xcode 16.4) | not attempted |
+| Tests | 109 | 58 | 12 | none written |
+| Packaged download | yes | yes | build it yourself | not possible yet |
 
-Every ✅ above is a job in [`.github/workflows/build.yml`](.github/workflows/build.yml) that runs on
-every push — so the table goes red on its own if it stops being true.
-
-Plus the [learner](learner/): 71 tests, and a measured before/after scorecard.
-
-Run everything your machine can:
+Every "yes" above is a job in [`.github/workflows/build.yml`](.github/workflows/build.yml) that runs
+on each push. To run whatever your own machine can:
 
 ```sh
 python tools/verify.py
 ```
 
-It prints `PASS` / `FAIL` / `SKIP` and never lets a skip look like a pass. On Windows with a JDK 17
-and an Android SDK you should see **8 passed, 0 failed, 2 skipped** — the two skips being the macOS
-and iOS Xcode builds, which need a Mac.
+It prints PASS, FAIL or SKIP for each check and never lets a skip read as a pass.
 
-**What "not attempted" means for iOS:** the Swift is structurally checked —
-`tools/check_ios.py` verifies delimiters, that every referenced symbol exists, and that the App
-Group and bundle ids agree across all five entitlements files, five plists and the project spec.
-That catches typos, not type errors. It cannot be built in CI because Apple grants the
-`family-controls` entitlement by hand, per developer account; see [ios/README.md](ios/README.md).
+**iOS is written but has never been built.** Apple grants the `family-controls` entitlement by
+hand, per developer account, so no CI runner can hold it. It also works differently from the other
+three — see [Privacy](#privacy) and [ios/README.md](ios/README.md).
 
-For calibration on how much that gap matters: macOS was in exactly this state one commit ago, and
-its first real compile found **one** error — an ambiguous `String.init` overload in a chained
-expression. Structural checking is worth something. It is not worth as much as a compiler.
+Nobody has yet run the macOS app on a real Mac and watched it block something. The tests cover the
+logic, not the screen-capture path.
 
 ---
 
-## Get started
+## Downloads
 
-### 1. Pick a model provider
+| Platform | File |
+|---|---|
+| Windows 10/11 | [Releases](../../releases/latest) → `LockoutProtocol-windows.zip`. Unzip and run `LockoutProtocol.exe`. Unsigned, so SmartScreen warns once. |
+| Android 14+ | [Releases](../../releases/latest) → `.apk`. Debug-signed; allow "install unknown apps" for your browser. |
+| macOS 14+ | `cd macos && xcodegen generate && open Guardian.xcodeproj`. Needs Xcode 16. |
+| iOS 16+ | See [ios/README.md](ios/README.md). |
 
-| | Cost | Privacy | Setup |
+---
+
+## Architecture
+
+Four apps, one shared design. Each platform has its own capture and blocking mechanism, but the
+session model, the classifier prompt, the judgement log and the learned-policy format are the same
+everywhere.
+
+```
+ ┌─ you ─────────────────────────────────────────────────────────────┐
+ │  task: "revising integration by parts"    50 min    self-managed  │
+ │  apps: your default watchlist, ± anything just for today          │
+ └────────────────────────┬──────────────────────────────────────────┘
+                          │ starts a session
+                          ▼
+ ┌─ monitor loop ────────────────────────────────────────────────────┐
+ │  every N seconds, only while a session is running:                │
+ │    1. which app is in front? is it on this session's watchlist?   │
+ │    2. capture one frame of it                                     │
+ │    3. ask the model: is this screen part of the declared task?    │
+ └────────────────────────┬──────────────────────────────────────────┘
+                          ▼
+        ┌─────────────────┴─────────────────┐
+        │                                   │
+    on task                             off task
+   log, continue                            │
+                                            ▼
+                            ┌─ block ────────────────────────┐
+                            │  self-managed: dismiss freely  │
+                            │  locked: passcode + partner    │
+                            └────────────────────────────────┘
+```
+
+**Sessions.** Monitoring begins and ends with a session. The watchlist is stored as a delta over
+your saved defaults, so apps added or excused for one afternoon do not change your settings.
+
+**Two accountability levels**, chosen per session:
+
+| | Self-managed | Locked |
+|---|---|---|
+| Blocks you | yes | yes |
+| Dismissing a block | no passcode | passcode |
+| Ending the session early | any time | passcode |
+| Partner notified | no | on every block and override |
+
+Closing a blocked app never needs a passcode, at either level. That is the anti-lockout rule and it
+is not configurable.
+
+**Providers.** One transport layer with four request shapes: Ollama (`/api/chat`), OpenAI-style
+(`/v1/chat/completions`), Anthropic (`/v1/messages`), and anything OpenAI-compatible at a URL you
+supply. Retry, key fail-over, and the rule that a backend problem never blocks you, are shared code.
+
+**Per platform:**
+
+| | Foreground app | Capture | Block |
 |---|---|---|---|
-| **Ollama on this machine** | free | nothing leaves the device | install [Ollama](https://ollama.com), `ollama pull qwen3-vl:8b` |
-| **Ollama Cloud** | metered | screenshots go to ollama.com | sign up, paste an API key |
-| **OpenAI / Anthropic** | metered | screenshots go to them | paste an API key |
-| **Anything OpenAI-compatible** | yours | yours | paste a base URL ending in `/v1` |
+| Windows | `GetForegroundWindow` | GDI screenshot | always-on-top Tk overlay |
+| macOS | `NSWorkspace` | ScreenCaptureKit | full-screen window at screen-saver level |
+| Android | AccessibilityService | `takeScreenshot()` | sticky Activity + `BlockGate` |
+| iOS | — | — | Screen Time shield, drawn by iOS |
 
-A local model is the right default if your machine can run one. Settings → **Test connection** tells
-you immediately whether it's reachable, rather than forty minutes into a session.
+```
+windows/     Python + Tk. Tray panel, dashboard, system-wide overlay.
+android/     Kotlin. Home-screen widget, accessibility capture.
+macos/       Swift + SwiftUI. Menu-bar item, ScreenCaptureKit.
+ios/         Swift. Screen Time shields — read its README first, it works differently.
+learner/     Offline Python. Turns "that was a false alarm" into a policy the apps read.
+tools/       verify.py, the structural checkers, the Windows packager.
+```
 
-On **Android and iOS**, "local" means a model on *your computer*, reached over Wi-Fi — start Ollama
-with `OLLAMA_HOST=0.0.0.0` and give the phone your machine's LAN address. iOS doesn't need a vision
-model at all; see [ios/README.md](ios/README.md) for why.
-
-### 2. If you want the locked level: set up alerts
-
-Do this *with* your accountability partner.
-
-1. Both install **ntfy** ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) ·
-   [iOS](https://apps.apple.com/us/app/ntfy/id1625396347) · [web](https://ntfy.sh/app)).
-2. Settings shows a private code like `lockout-8fk2j4nx9qla`. They subscribe to exactly that.
-3. Press **Send test alert**. If it lands, you're done.
-
-That code is the only secret — anyone who knows it can read your alerts, so don't post it anywhere.
-
-### 3. Set a default watchlist, then run a session in TEST mode
-
-Browsers, social apps, games, video, shopping. Not your password manager or your bank.
-
-Leave **TEST mode** on for the first session: everything is evaluated and logged, nothing is
-blocked. Read the activity log afterwards and see whether the verdicts match what you were actually
-doing. Then arm it.
-
-Being specific in the task box matters more than anything else here. `revising integration by parts
-for Friday's calc test` works; `study` does not.
+The four clients share one judgement-log format and one policy format.
+[`windows/tests/test_policy_contract.py`](windows/tests/test_policy_contract.py) reads the other
+platforms' source as text to check the shared constants have not drifted, because nothing compiles
+all four together. It has already caught one real bug.
 
 ---
 
-## Run from source
+## Privacy
 
-**Windows** (Python 3.12):
+### What this app does
+
+Nothing is sent anywhere except to the model provider you configure. There is no telemetry, no
+analytics, no account, and no server of ours involved at any point. The project has no backend.
+
+Screenshots are never written to disk. A frame is captured, encoded, sent, and discarded.
+
+**Capture only happens during a session.** Not captured-and-discarded when idle — not captured at
+all. That is a branch in the monitor loop and a test
+([`test_idle_never_touches_the_screen`](windows/tests/test_monitor_flow.py)), not a policy
+statement.
+
+Two logs are kept, both local:
+
+- `activity.log` — a line per check, for you to read.
+- `judgements.jsonl` — the same events as structured rows, for the end-of-session summary and the
+  offline learner. Never uploaded; on iOS you export it by hand if you want to use it.
+
+API keys go in the OS credential store (DPAPI on Windows, Keychain on macOS and iOS,
+EncryptedSharedPreferences on Android), never a config file.
+
+Alerts, if you enable them, go to [ntfy](https://ntfy.sh) as a short text message: the app name and
+the model's one-line reason. No screenshot. The topic string is the only secret.
+
+### What your provider sees
+
+This is the part that actually varies, so choose deliberately.
+
+| Provider | What leaves your device | Who can see it |
+|---|---|---|
+| Ollama on this machine | nothing | nobody |
+| Ollama on your own computer (phone → LAN) | a JPEG of your screen, over your Wi-Fi | nobody outside your network |
+| LM Studio / llama.cpp / vLLM, local | nothing, or your LAN only | nobody outside your network |
+| Ollama Cloud | a JPEG of your screen, plus your task text | ollama.com, under their terms |
+| OpenAI | a JPEG of your screen, plus your task text | OpenAI, under their terms |
+| Anthropic | a JPEG of your screen, plus your task text | Anthropic, under their terms |
+| Your own gateway | whatever you point it at | you |
+
+A local model is the private option and the free one. If your machine can run a vision model, use
+it: `ollama pull qwen3-vl:8b`, then point the app at `http://127.0.0.1:11434`.
+
+On Android, "local" means a model on your own computer reached over Wi-Fi. Start Ollama with
+`OLLAMA_HOST=0.0.0.0` and give the phone your machine's LAN address.
+
+Whichever you choose, the screenshot is of whichever watched app is in front, so it can contain
+anything that app is showing. Do not put a password manager or a banking app on the watchlist.
+
+### iOS is different
+
+No iOS app can see another app's screen. There is no API for it and there will not be one. So the
+iOS app does not screenshot anything: it asks the model *which of your apps to shut for this task*,
+and Apple's Screen Time shields them.
+
+That is coarser — YouTube is shut or open, with no way to tell a lecture from a stream — and
+strictly more private, because the only thing that leaves the device is your typed task and a list
+of app names you chose to offer. [ios/README.md](ios/README.md) has the full trade-off.
+
+### What it is not
+
+Not covert. Install it on a device you own, or where the person using it has agreed. Secretly
+monitoring someone else's device is illegal in many places.
+
+---
+
+## Getting started
+
+### 1. Choose a model provider
+
+Settings → Model provider. Every option is listed with what it costs and what it sees. Press **Test
+connection**: it tells you immediately whether the server is reachable and whether the model you
+named is actually there, rather than failing forty minutes into a session.
+
+### 2. Pick a default watchlist
+
+Browsers, social apps, video, games, shopping. Not password managers, not banking apps.
+
+Only apps on this list are ever captured, and only while a session is running.
+
+### 3. Run one session in TEST mode
+
+TEST mode evaluates and logs everything but blocks nothing. Do a normal hour of work, then read the
+activity log and see whether the verdicts match what you were actually doing. Adjust, then turn TEST
+mode off to arm blocking.
+
+Be specific in the task box. `revising integration by parts for Friday's calc test` works; `study`
+does not.
+
+### 4. Optional: alerts, for locked sessions
+
+Only needed if you want the locked level.
+
+1. You and your accountability partner both install [ntfy](https://ntfy.sh) (Android, iOS, or web).
+2. Settings shows a private code like `lockout-8fk2j4nx9qla`. They subscribe to exactly that.
+3. Press **Send test alert**.
+
+That code is the only secret. Anyone who knows it can read your alerts.
+
+### Running from source
+
+Windows (Python 3.12):
 
 ```sh
 python -m pip install pillow pystray pywin32
 cd windows && python run_guardian.pyw
+cd windows && python run_tests.py          # tests
 ```
 
-Tests: `cd windows && python run_tests.py`
-
-**Android** (JDK 17 + Android SDK):
+Android (JDK 17 + Android SDK):
 
 ```sh
 cd android
-./gradlew :app:assembleDebug          # APK in app/build/outputs/apk/debug/
+./gradlew :app:assembleDebug
 ./gradlew :app:testDebugUnitTest
 ```
 
-**Package a Windows build yourself:**
+Package a Windows build:
 
 ```sh
 python -m pip install pyinstaller
-python tools/build_windows.py         # → dist/LockoutProtocol/
+python tools/build_windows.py              # → dist/LockoutProtocol/
 ```
 
 ---
 
-## The experimental learner
+## False alarms, and the learner
 
-The failure mode that kills a focus tool is the **false alarm** — it interrupts you while you're
-working, twice in an afternoon, and you uninstall it. So the classifier is deliberately biased
-towards "on task" and counts supporting work (a lecture, a forum thread, a study-group chat) as part
-of the job. That bias is [pinned by a test](windows/tests/test_focus.py).
+The failure that matters in a focus tool is the false alarm. Interrupting real work twice in an
+afternoon is how the app gets uninstalled, after which it protects nothing.
 
-[`learner/`](learner/) goes further: it reads the decision log, learns from the blocks you marked
-wrong, and writes one portable `focus_policy.json` that all four apps read. Measured on 24 simulated
+So the classifier is biased towards "on task", and counts supporting work — a lecture, a
+documentation page, a forum thread, a study-group chat — as part of the job. That bias is pinned by
+a test.
+
+[`learner/`](learner/) goes further. It reads the decision log, learns from blocks you marked wrong,
+and compiles one portable `focus_policy.json` that all four apps read. Measured over 24 simulated
 days:
 
 | | before | after |
 |---|---|---|
-| false-alarm rate | 49.0% | **6.9%** |
-| missed-violation rate | 13.2% | **25.3% — worse** |
+| false-alarm rate | 49.0% | 6.9% |
+| missed-violation rate | 13.2% | 25.3% |
 
-Both numbers are real and both matter. The recommendation in
-[learner/README.md](learner/README.md) is to ship the *allowances* mechanism (which cut false alarms
-to 19.4% at **zero** recall cost) and keep *threshold calibration* behind a flag, because
-calibration caused the entire regression. All numbers are from synthetic data; that's stated there
-too.
+The second number got worse, and that is the more useful result. The ablation in
+[learner/README.md](learner/README.md) shows the allowance mechanism produces most of the
+improvement at no recall cost, and the confidence calibration causes the entire regression — so the
+recommendation is to ship the first and keep the second behind a flag. All figures are from
+synthetic data.
 
-It is **off by default**, because a self-control tool that learns from you can be taught to stop
-stopping you. The anti-gaming design — rate limits, repeated-evidence requirements, expiry, a hard
-0.85 ceiling the app enforces regardless of what the policy file asks for, and an integrity score
-your partner can be alerted on — is documented there, along with the measurement showing it *bounds*
-the damage rather than eliminating it.
-
----
-
-## What this is not
-
-**Not covert.** Install it on a device **you own**, or where the person using it has knowingly
-agreed. Secretly monitoring someone else's device is illegal in many places.
-
-**Not a content filter** any more, though it can still be one: the original always-on
-content-safety classifier is still here, opt-in and off by default, under Settings → *Also enforce
-content rules*. Turning it on means screenshots are taken outside sessions too. See
-[SAFEGUARDS.md](SAFEGUARDS.md).
-
-**Not free to run** unless you use a local model. Every check is one screenshot and one model call,
-so the interval is your cost dial.
+It is off by default. A self-control tool that learns from you can be taught to stop stopping you,
+so there are limits on how far it can loosen: rate limits, repeated evidence across separate days,
+expiry, a hard ceiling the app enforces regardless of what the policy file asks for, and an
+integrity score your partner can be alerted on. Those bound the damage rather than removing it, and
+the README says so with numbers.
 
 ---
 
-## Layout
+## Also here
 
-```
-windows/     Python + Tk. Tray panel, mini dashboard. Verified.
-android/     Kotlin. Home-screen widget, accessibility capture. Verified.
-macos/       Swift + SwiftUI. Menu-bar item, ScreenCaptureKit. Verified.
-ios/         Swift. Screen Time shields instead of screen reading — read its README first.
-learner/     Offline, stdlib-only Python. The false-alarm learner and its scorecard.
-tools/       verify.py and the structural checkers.
-```
+The original content-rules mode — an always-on classifier checking screens against written
+guidelines — is still present, opt-in and off by default under Settings. Turning it on means
+screenshots are taken outside sessions too.
 
-The four apps share one judgement-log format and one learned-policy format, and
-[`windows/tests/test_policy_contract.py`](windows/tests/test_policy_contract.py) reads the other
-platforms' source as text to prove the constants haven't drifted. That's unusual, and it's the
-point: nothing compiles all four together, so nothing else would catch it. It has already caught one
-real bug — a lower-casing mismatch that silently disabled learning on macOS entirely.
+[SAFEGUARDS.md](SAFEGUARDS.md) documents what must not be weakened and why, including the
+anti-lockout guarantees and the rules for the learner.
 
 ## Licence
 

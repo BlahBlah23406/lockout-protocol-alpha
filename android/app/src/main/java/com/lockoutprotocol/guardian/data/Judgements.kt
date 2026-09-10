@@ -8,17 +8,11 @@ import org.json.JSONObject
 /**
  * Append-only record of every focus check, and the user's feedback on it.
  *
- * The activity log is prose for humans. This is the same events as structured rows, because two
- * things need to read them back: you, at the end of a session ("it blocked me four times — was it
- * right?"), and the experimental learner at `learner/`, which turns "that was a false alarm" into
- * a policy that stops the same false alarm happening again.
+ * One JSON object per line, appended and never rewritten, so a kill mid-write costs one line
+ * rather than the file. The schema is shared with the Windows, macOS and iOS ports and with the
+ * offline learner — change a field name in one place and you must change it in all four.
  *
- * One JSON object per line, appended and never rewritten — so a kill mid-write costs one line
- * rather than the file. The schema is a contract shared with the Windows and macOS ports and with
- * the learner: if you change a field name, change it in all four places.
- *
- * This file lives in the app's private storage, so it is not readable by other apps and goes away
- * with an uninstall. To feed it to the learner, pull it with
+ * It lives in the app's private storage. To feed it to the learner:
  * `adb shell run-as com.lockoutprotocol.guardian cat files/judgements.jsonl`.
  */
 object Judgements {
@@ -30,10 +24,7 @@ object Judgements {
     const val FB_FALSE_ALARM = "false_alarm"    // it blocked me and it was wrong
     const val FB_CORRECT = "correct"            // it blocked me and it was right
 
-    /**
-     * The important, easily-forgotten one: a monitor tuned only on false alarms drifts towards
-     * never blocking anything, which is a very comfortable failure.
-     */
+    /** Easily forgotten: a monitor tuned only on false alarms drifts towards never blocking. */
     const val FB_MISSED = "missed"
 
     private fun file(ctx: Context) = File(ctx.filesDir, FILE_NAME)
@@ -73,13 +64,8 @@ object Judgements {
         return jid
     }
 
-    /**
-     * Attach the user's verdict-on-the-verdict.
-     *
-     * Written as a *new* row rather than an edit of the original: rewriting a line in place means
-     * reading and rewriting the whole file, which is exactly the operation you don't want running
-     * while the monitor is appending to it. Readers fold the pair together by id.
-     */
+    /** Written as a new row rather than an edit: rewriting a line in place means rewriting the
+     *  whole file, which is not something to do while the monitor is appending to it. */
     @Synchronized
     fun addFeedback(ctx: Context, judgementId: String, feedback: String, note: String = ""): Boolean {
         if (feedback !in setOf(FB_FALSE_ALARM, FB_CORRECT, FB_MISSED)) return false
@@ -95,7 +81,7 @@ object Judgements {
     }
 
     private fun append(ctx: Context, row: JSONObject) {
-        // Telemetry must never be able to break monitoring, hence the swallowed failure.
+        // Telemetry must never be able to break monitoring.
         runCatching { file(ctx).appendText(row.toString() + "\n") }
     }
 
@@ -110,7 +96,7 @@ object Judgements {
 
         for (line in lines.takeLast(limit * 2)) {
             val obj = runCatching { JSONObject(line) }.getOrNull()
-                ?: continue         // a torn final line after a hard kill is expected, not fatal
+                ?: continue         // a torn final line after a hard kill
             val ref = obj.optString("ref", "")
             if (ref.isNotEmpty()) {
                 indexById[ref]?.let { idx ->

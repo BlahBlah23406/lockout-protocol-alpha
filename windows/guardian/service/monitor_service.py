@@ -1,25 +1,14 @@
 """The monitoring loop.
 
-Guardian has two modes and this is where they meet:
+Focus mode runs while a session is active: every `interval_seconds` it screenshots whichever
+watched app is in front and asks the model whether that screen belongs to the declared task.
+Content-rules mode is the original always-on classifier, opt-in and off by default.
 
-**Focus mode** (the product). A session is running — the user declared a task like "working on
-math test prep" — so every `interval_seconds` we screenshot whichever watched app is in front and
-ask the model whether that screen belongs to that task. Off-task screens get blocked at whatever
-accountability level the session was started with.
+When no session is running and content rules are off, nothing is captured at all.
 
-**Content rules** (opt-in, off by default). The original behaviour: an always-on classifier
-checking screens against written content guidelines. Kept because it works and people use it, but
-it is no longer what the app is for.
-
-The single most important structural change from the old version: **when no session is running,
-nothing is captured at all.** Not "captured and discarded" — the screenshot is never taken. A
-monitor that only looks during a window you opened yourself is a fundamentally different thing to
-live with than one that is always watching, and that difference is worth the extra branch here.
-
-Cadence is driven by the session's interval rather than by how fast the model answers. The old
-loop fired again 1.2s after each reply, which is right for content safety (a single frame of the
-wrong thing matters) and completely wrong here: it would burn hundreds of inference calls an hour
-to answer a question whose answer changes over minutes.
+Cadence follows the session's interval rather than how fast the model answers. The old loop fired
+1.2s after each reply, which is right for content safety and wrong here: it would burn hundreds of
+calls an hour on a question whose answer changes over minutes.
 """
 
 import threading
@@ -38,14 +27,13 @@ from ..push import pusher
 from . import overrides
 from .block_controller import BlockController
 
-# Content-rules cadence (unchanged from the original app).
+# Content-rules cadence, unchanged from the original app.
 MIN_GAP = 1.2
 IDLE_POLL = 2.5
 
-# Focus-mode cadence. `FOCUS_IDLE_POLL` is how often we re-check *which app is in front* while
-# not on a watched app — cheap (a Win32 call, no capture, no inference), so it can be brisk.
+# Focus mode: how often to re-check which app is in front while not on a watched app. Cheap — a
+# Win32 call, no capture, no inference.
 FOCUS_IDLE_POLL = 3.0
-# After a transient backend failure, retry sooner than the full interval but not instantly.
 TRANSIENT_RETRY = 20.0
 
 ALERT_THROTTLE = 10 * 60
@@ -64,13 +52,12 @@ class MonitorService:
         self._prefs = Prefs.shared()
         self._log = EventLog.shared()
         self._sessions = SessionStore.shared()
-        # Per-app throttle so persistently-unverifiable apps don't spam the alert.
         self._last_alert_at = {}
         self._screen_was_visible = True
         self._unreadable_streak = 0
-        # When the next focus check is due, per app. Keyed by app so switching apps checks the new
-        # one promptly instead of inheriting the previous app's countdown — the moment you switch
-        # into a distraction is exactly the moment worth looking.
+        # When the next check is due, per app. Keyed by app so switching into a distraction is
+        # checked promptly rather than inheriting the previous app's countdown, while still
+        # rate-limiting each app so flicking back and forth can't force a check storm.
         self._next_check_at = {}
         self._listeners = []
 
@@ -131,13 +118,12 @@ class MonitorService:
     # ---- one tick ----------------------------------------------------------------------
 
     def _tick(self) -> float:
-        """Do at most one unit of work. Returns how many seconds to wait before the next tick."""
-        # A block overlay is up — we are already covering the screen; don't capture or evaluate.
+        """Do at most one unit of work. Returns seconds to wait before the next tick."""
         if BlockController.shared().is_blocking:
             return IDLE_POLL
 
-        # Display asleep / locked / screen saver: nobody is looking at anything, and capturing
-        # would hand us a black frame that reads as "can't see" and alerts. Pause instead.
+        # Display asleep or locked: nobody is looking at anything, and capturing would hand us a
+        # black frame that reads as "can't see" and alerts.
         if not screen_state.is_visible():
             if self._screen_was_visible:
                 self._screen_was_visible = False
@@ -156,7 +142,6 @@ class MonitorService:
         if self._prefs.content_rules_enabled:
             return MIN_GAP if self._content_tick() else IDLE_POLL
 
-        # Nothing to do: no session, content rules off. Explicitly *not* capturing anything.
         self._set_status("No focus session - not watching")
         return IDLE_POLL
 
@@ -172,6 +157,8 @@ class MonitorService:
 
         fg = foreground_app.identifier()
 
+        # A foreground window we're not permitted to query (an elevated app while we run
+        # unelevated) is a real blind spot. Never a block, but reported after a few readings.
         if fg == foreground_app.UNREADABLE:
             self._unreadable_streak += 1
             if self._unreadable_streak == 5:
@@ -186,15 +173,12 @@ class MonitorService:
 
         watchlist = session.watchlist(self._prefs.monitored_apps)
         if not fg or fg not in watchlist:
-            # Not a watched app. In focus mode this is the normal, uninteresting case — you are in
-            # your editor, or your terminal, or anything you never asked to be policed.
             self._set_status(self._idle_status(session))
             return FOCUS_IDLE_POLL
 
         if overrides.is_active(fg):
             return FOCUS_IDLE_POLL
 
-        # Rate-limit per app so switching back and forth can't be used to force a check storm.
         due_at = self._next_check_at.get(fg, 0)
         now = time.time()
         if now < due_at:
@@ -224,7 +208,7 @@ class MonitorService:
             on_key_worked=self._prefs.promote_api_key)
         ms = int((time.time() - started) * 1000)
 
-        # Transient backend trouble is never evidence about the user: log, retry sooner, no block.
+        # Transient backend trouble is never evidence about the user.
         if verdict.transient:
             self._log.add(f"[busy] {name} - AI unavailable ({verdict.reason}) - skipped")
             self._set_status("AI unavailable - retrying")
@@ -245,7 +229,6 @@ class MonitorService:
             self._set_status(self._idle_status(session))
             return interval
 
-        # Off task.
         self._sessions.record_check(off_task=True)
         action = "logged" if dry else "blocked"
         jid = judgements.record(session, fg, name, title, "off_task", verdict.reason,
@@ -265,22 +248,19 @@ class MonitorService:
         return f"Focus: {session.task[:32]} ({int(left // 60)}m left)"
 
     def _extra_notes(self, session, app_id: str) -> str:
-        """Standing notes handed to the classifier: the user's own, plus anything the experimental
-        learner has concluded. Both are capped hard — a prompt suffix that grows without bound
-        eventually costs more than the screenshot does."""
+        """The user's standing notes plus anything the learner concluded, capped."""
         notes = [self._prefs.focus_notes.strip()]
         if self._prefs.learning_enabled:
             try:
                 from ..focus import learned
                 notes.append(learned.prompt_suffix(session.task, app_id))
             except Exception:
-                pass                    # the learner is experimental; it must never break a check
+                pass                    # the learner is experimental; never break a check
         return "\n".join(n for n in notes if n)[:1500]
 
     def _enforce_off_task(self, session, identifier: str, name: str, verdict, jid: str) -> None:
-        """Raise the block. What the block *offers* depends on the accountability level the user
-        chose when they started the session — that choice is the whole point of the two levels,
-        so it is read from the session and not from a global setting that could have drifted."""
+        """The accountability level is read from the session, not from a global setting that
+        could have drifted since it started."""
         self._prefs.last_violation_at = time.time()
         self._set_status(f"BLOCKED {name}")
         BlockController.shared().show(identifier, name, verdict.reason,
@@ -293,7 +273,7 @@ class MonitorService:
                 f"Task: {session.task}\n\n{name} was blocked.\nReason: {verdict.reason}",
                 throttle=False)
 
-    # ---- content-rules mode (opt-in; the original behaviour) ---------------------------
+    # ---- content-rules mode (opt-in) ---------------------------------------------------
 
     def _content_tick(self) -> bool:
         """Returns True if a monitored app was on screen and was actually checked."""
@@ -351,9 +331,7 @@ class MonitorService:
     # ---- shared -------------------------------------------------------------------------
 
     def _handle_unverifiable(self, identifier: str, name: str, why: str, dry: bool) -> None:
-        """A watched app's screen could NOT be read (blank/protected frame, capture failure, or an
-        answer we couldn't parse). Never blocks. This is the anti-lockout rule: a screen we cannot
-        see is not a screen we get to punish."""
+        """A screen we cannot read is never a block. Logs, and alerts when configured."""
         if dry:
             self._log.add(f"[blind] {name} CAN'T SEE - {why} - would alert [TEST]")
             self._set_status(f"Can't see {name}")

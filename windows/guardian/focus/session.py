@@ -1,23 +1,15 @@
 """A focus session: one declared task, for a stretch of time, on a chosen set of apps.
 
-This is the unit the whole app is now organised around. Before, monitoring was a mode you left
-running forever. Now it is a *session* you deliberately start — "working on math test prep",
-90 minutes — and when it ends, nothing is watched at all. That is a deliberate product decision
-and not just a UI change: a tool that only ever looks at your screen during a window you opened
-yourself is far easier to trust, and far easier to keep installed, than one that is always on.
+Monitoring begins and ends with a session. When none is running, nothing is captured at all.
 
-Two accountability levels, and the difference between them is who holds the exit:
+Two accountability levels, differing only in who holds the exit:
 
     "self"    You can end the session or dismiss a block yourself, no passcode. The block still
-              interrupts you and still goes in the log — the friction *is* the product — but you
-              are the only one holding you to it. This is the honest default for most people.
-    "locked"  Ending the session early, or overriding a block, needs the passcode. Blocks and
-              overrides both fire an ntfy alert to your accountability partner's private link.
-              For when "I'll just check one thing" has already won too many times.
+              interrupts and is still logged.
+    "locked"  Ending early or overriding a block needs the passcode, and both fire an ntfy alert.
 
-The session is persisted to disk after every mutation. If Guardian is killed and relaunched
-mid-session it picks the session back up — otherwise force-quitting the app would be a one-click
-bypass, which would make "locked" meaningless.
+The session is persisted after every mutation, so killing and relaunching the app mid-session
+resumes it rather than silently cancelling it.
 """
 
 import json
@@ -36,9 +28,8 @@ ACC_SELF = "self"
 ACC_LOCKED = "locked"
 ACCOUNTABILITY_LEVELS = (ACC_SELF, ACC_LOCKED)
 
-# How often we check, in seconds. The default is a compromise found by using it: much below a
-# minute and you are paying for inference constantly and being interrupted by transients; much
-# above five and a genuine detour has already eaten the block it should have prevented.
+# Below a minute you pay for inference constantly and get interrupted by transients; above five
+# a real detour has already eaten the block it should have prevented.
 DEFAULT_INTERVAL = 120
 MIN_INTERVAL = 15
 MAX_INTERVAL = 3600
@@ -76,13 +67,11 @@ class FocusSession:
         self.id = session_id or _new_id()
         self.task = (task or "").strip()
         self.started_at = float(started_at if started_at is not None else time.time())
-        # 0 means open-ended: run until I say stop. Useful, and the only sane option for the
-        # "locked" level to *not* offer, since an open-ended locked session with a lost passcode
-        # is exactly the lockout we promise never to create (see `SAFEGUARDS.md`).
+        # 0 means open-ended. Not offered for "locked": an open-ended locked session plus a
+        # forgotten passcode is the one shape that could genuinely trap someone.
         self.planned_minutes = max(int(planned_minutes or 0), 0)
         self.interval_seconds = clamp_interval(interval_seconds)
         self.accountability = accountability if accountability in ACCOUNTABILITY_LEVELS else ACC_SELF
-        # One-off, this-session-only adjustments on top of the saved default watchlist.
         self.extra_apps = set(extra_apps or ())
         self.allowed_apps = set(allowed_apps or ())
         self.provider_id = provider_id or ""
@@ -93,18 +82,10 @@ class FocusSession:
         self.override_count = 0
         self.paused_until = 0.0
 
-    # ---- watchlist ---------------------------------------------------------------------
-
     def watchlist(self, default_apps) -> set:
-        """The apps actually watched this session: your saved defaults, plus anything you added
-        just for today, minus anything you excused just for today.
-
-        The exclusion is not a loophole — it is what makes the default list usable. If Slack is
-        normally a distraction but today's task *is* answering Slack, you shouldn't have to edit
-        your permanent settings (and then forget to put them back)."""
+        """Saved defaults, plus anything added just for today, minus anything excused just for
+        today. Stored as a delta rather than a copy, so editing the defaults mid-session works."""
         return (set(default_apps) | self.extra_apps) - self.allowed_apps
-
-    # ---- lifecycle ---------------------------------------------------------------------
 
     @property
     def is_active(self) -> bool:
@@ -131,14 +112,10 @@ class FocusSession:
         return self.paused_until > time.time()
 
     def requires_passcode_to_end(self) -> bool:
-        """Only "locked" sessions hold their own exit. A "self" session ends when you say so —
-        pretending otherwise would be a lie, since you can always quit the app."""
         return self.accountability == ACC_LOCKED
 
     def alerts_partner(self) -> bool:
         return self.accountability == ACC_LOCKED
-
-    # ---- serialisation -----------------------------------------------------------------
 
     def to_dict(self) -> dict:
         return {
@@ -202,8 +179,6 @@ class SessionStore:
                 cls._instance = cls()
             return cls._instance
 
-    # ---- change notification -----------------------------------------------------------
-
     def subscribe(self, fn):
         self._listeners.append(fn)
 
@@ -213,8 +188,6 @@ class SessionStore:
                 fn()
             except Exception:
                 pass
-
-    # ---- persistence -------------------------------------------------------------------
 
     def _load(self):
         try:
@@ -243,12 +216,10 @@ class SessionStore:
         except Exception:
             pass
 
-    # ---- accessors ---------------------------------------------------------------------
-
     @property
     def current(self):
-        """The live session, or None. Expiry is evaluated lazily on read so nothing depends on a
-        timer having fired — a laptop that was asleep past the end time still ends cleanly."""
+        """The live session, or None. Expiry is evaluated on read, so a machine that slept past
+        the end time still ends its session cleanly."""
         with self._lock:
             s = self._current
             if s is not None and s.is_over:
@@ -259,8 +230,6 @@ class SessionStore:
     @property
     def is_active(self) -> bool:
         return self.current is not None
-
-    # ---- mutations ---------------------------------------------------------------------
 
     def start(self, session: FocusSession) -> FocusSession:
         with self._lock:
@@ -284,8 +253,7 @@ class SessionStore:
         self._notify()
 
     def pause(self, seconds: float) -> None:
-        """Used by the block screen's override: stop checking for a bit so the user isn't
-        re-blocked mid-sentence while they finish what they said they needed to do."""
+        """Used by the block screen's override, so the user isn't re-blocked mid-sentence."""
         with self._lock:
             if self._current is None:
                 return
@@ -311,7 +279,6 @@ class SessionStore:
         self._notify()
 
     def add_session_app(self, identifier: str) -> None:
-        """Add a one-off app to the live session (from the block screen or the mini panel)."""
         with self._lock:
             if self._current is None:
                 return
@@ -321,7 +288,6 @@ class SessionStore:
         self._notify()
 
     def allow_session_app(self, identifier: str) -> None:
-        """Excuse an app for the rest of this session only."""
         with self._lock:
             if self._current is None:
                 return
@@ -340,5 +306,5 @@ class SessionStore:
             try:
                 out.append(FocusSession.from_dict(json.loads(line)))
             except Exception:
-                continue          # a truncated last line after a hard kill is expected, not fatal
+                continue          # a truncated last line after a hard kill is expected
         return out

@@ -1,12 +1,7 @@
-"""The mini panel: a small, borderless window that drops out of the tray icon.
+"""The mini panel that drops out of the tray icon: start a session, or see the one running.
 
-The Windows counterpart of the macOS menu-bar popover. It exists because the full dashboard is
-the wrong shape for the two things people actually do — start a session, and glance at whether
-one is running. Opening a 740x600 window with an activity log to answer "am I being watched right
-now?" is enough friction that people stop asking.
-
-It anchors itself to the bottom-right above the taskbar rather than following the cursor, so it
-lands in the same place every time and can be dismissed by clicking away from it.
+The Windows counterpart of the macOS menu-bar popover. Anchored bottom-right rather than following
+the cursor, so it lands in the same place every time.
 """
 
 import tkinter as tk
@@ -42,7 +37,7 @@ class QuickPanel(tk.Toplevel):
         self._body = tk.Frame(self, bg=T.SPACE)
         self._body.pack(fill="both", expand=True)
 
-        # Clicking anywhere else dismisses it, the way a real popover behaves.
+        # Clicking away dismisses it, the way a popover behaves.
         self.bind("<FocusOut>", lambda _e: self.hide())
         self._tick_job = None
 
@@ -80,8 +75,7 @@ class QuickPanel(tk.Toplevel):
         self.withdraw()
 
     def _schedule_tick(self):
-        """Repaint once a second so the countdown is live while the panel is open — and only
-        while it is open, because a hidden panel repainting forever is pure waste."""
+        """Repaint once a second while open, so the countdown is live."""
         if not self.winfo_viewable():
             return
         self._render()
@@ -176,7 +170,7 @@ class QuickPanel(tk.Toplevel):
         FocusStartWindow(self.master)
 
     def _restart_last(self):
-        """One click to run the same session again — same task, same settings as last time."""
+        """Run the same session again: same task, same settings."""
         self.hide()
         win = FocusStartWindow(self.master)
         win.after(200, win.start_now)
@@ -185,8 +179,8 @@ class QuickPanel(tk.Toplevel):
         session = self.store.current
         if session is None:
             return
-        # A locked session holds its own exit. This is the passcode's real job — not stopping you
-        # from using the computer, but stopping you from quietly cancelling the commitment.
+        # A locked session holds its own exit: the passcode stops you cancelling the commitment,
+        # not using the computer.
         if session.requires_passcode_to_end() and not require(self, "end this locked session"):
             return
         self.store.end("ended by user")

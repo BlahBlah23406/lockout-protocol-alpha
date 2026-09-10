@@ -27,17 +27,10 @@ import com.lockoutprotocol.guardian.widget.FocusWidget
 /**
  * "What are you working on?" — the start screen, and the target of the home-screen widget.
  *
- * Deliberately shallow: one text field, two rows of chips, a radio pair, one button. A focus tool
- * that takes four taps to arm gets used on the days you least need it and skipped on the days you
- * do, so the task field is prefilled with last time's answer and everything else already has a
- * working default from Settings.
- *
- * When a session is already running this screen shows *that* instead, with the countdown and an
- * End button — so a widget tap never lands somewhere useless.
- *
- * The one place friction is added on purpose is the accountability picker: choosing "Locked" means
- * handing your passcode to future-you-who-wants-to-stop, so the consequences are spelled out next
- * to the option rather than buried in a docs page.
+ * Shallow on purpose: one text field, two rows of chips, a radio pair, one button, all prefilled.
+ * When a session is already running it shows that instead, so a widget tap never lands somewhere
+ * useless. The accountability picker is the exception: its consequences are spelled out next to
+ * each option rather than left in the docs.
  */
 class FocusStartActivity : AppCompatActivity() {
 
@@ -107,11 +100,8 @@ class FocusStartActivity : AppCompatActivity() {
         setContentView(ScrollView(this).apply { addView(root) })
     }
 
-    /**
-     * Ending a locked session early is the commitment being broken, so it costs the passcode.
-     * This is the passcode's real job — not stopping you using the phone, but stopping you
-     * quietly cancelling what you committed to.
-     */
+    /** Ending a locked session early costs the passcode: it stops you quietly cancelling the
+     *  commitment, not using the phone. */
     private fun requestEnd(session: FocusSession) {
         if (!session.accountability.requiresPasscodeToEnd || !prefs.pinSet) {
             endSession()
@@ -196,7 +186,7 @@ class FocusStartActivity : AppCompatActivity() {
         refreshWarning()
     }
 
-    /** A row of tappable value chips — the phone-sized equivalent of a radio group. */
+    /** A row of tappable value chips: the phone-sized equivalent of a radio group. */
     private fun chipRow(
         title: String,
         choices: List<Pair<Int, String>>,
@@ -217,9 +207,7 @@ class FocusStartActivity : AppCompatActivity() {
             row.addView(Lcars.pill(this, label,
                 if (get() == value) Lcars.GOLD else Lcars.BLUE) {
                 set(value)
-                // Rebuilding is cheap here and keeps selection state in one place rather than
-                // holding references to every chip.
-                startForm()
+                startForm()     // cheap, and keeps selection state in one place
             })
         }
         wrapper.addView(row)
@@ -240,7 +228,7 @@ class FocusStartActivity : AppCompatActivity() {
             })
         }
 
-    /** Say the awkward part out loud before they commit, not after. */
+    /** Warn about a locked session's missing prerequisites before it is started. */
     private fun refreshWarning() {
         if (accountability != Accountability.LOCKED) {
             warning.text = ""
@@ -291,9 +279,8 @@ class FocusStartActivity : AppCompatActivity() {
         if (requestCode != REQ_APPS || data == null) return
         val selected = data.getStringArrayListExtra(AppPickerActivity.EXTRA_SELECTION)
             ?.toSet() ?: return
-        // Store the *delta* against the saved defaults, not a copy of the list: if the default
-        // watchlist is edited later, a session started before that edit still tracks it — which is
-        // what people expect, and what a snapshot would silently get wrong.
+        // The delta against the saved defaults, not a copy: editing the defaults later should
+        // still affect a session started before the edit.
         val defaults = prefs.monitoredPackages
         extraApps = selected - defaults
         allowedApps = defaults - selected
@@ -309,8 +296,7 @@ class FocusStartActivity : AppCompatActivity() {
             return
         }
         if (accountability == Accountability.LOCKED && minutes == 0) {
-            // An open-ended locked session plus a forgotten passcode is the one shape that could
-            // genuinely trap someone. Refuse to create it.
+            // Open-ended + locked + a forgotten passcode is the one shape that could trap someone.
             showError("A locked session needs an end time — open-ended locked sessions " +
                 "aren't allowed.")
             return
@@ -350,11 +336,8 @@ class FocusStartActivity : AppCompatActivity() {
     }
 
     companion object {
-        /**
-         * Set when launched from the home-screen widget. The widget deliberately does NOT start a
-         * session silently — it opens this screen prefilled, so starting a locked session is
-         * always a deliberate confirmation rather than a stray home-screen tap.
-         */
+        /** Set when launched from the widget, which opens this screen prefilled rather than
+         *  starting a session silently. */
         const val EXTRA_FROM_WIDGET = "from_widget"
 
         private const val REQ_APPS = 4711

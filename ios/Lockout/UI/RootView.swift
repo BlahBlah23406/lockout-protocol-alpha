@@ -2,8 +2,7 @@ import SwiftUI
 
 /// The main screen: start a session, or see the one running.
 ///
-/// Small on purpose. On iOS the app is not where you spend the session — the shield is — so this
-/// only needs to answer "is one running, and how do I start or stop one".
+/// Small on purpose: on iOS the shield is where the session is spent, not the app.
 struct RootView: View {
     @StateObject private var prefs = Prefs.shared
     @StateObject private var sessions = SessionStore.shared
@@ -112,7 +111,7 @@ struct RootView: View {
         }
     }
 
-    /// Ending a locked session early is the commitment being broken, so it costs the passcode.
+    /// Ending a locked session early costs the passcode.
     private func requestEnd(_ session: FocusSession) {
         if prefs.pinSet && session.accountability.requiresPasscodeToEnd {
             askingToEnd = true
@@ -137,7 +136,7 @@ struct RootView: View {
         pin = ""
 
         if wasLocked {
-            // A locked session ended early is exactly the event a partner signed up to hear about.
+            // The event the partner signed up to hear about.
             let cfg = Pusher.Config(enabled: prefs.pushEnabled, server: prefs.ntfyServer,
                                     topic: prefs.ntfyTopic)
             Task { await Pusher.send(cfg, title: "[Lockout] Locked session ended early",

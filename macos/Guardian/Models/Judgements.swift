@@ -2,26 +2,19 @@ import Foundation
 
 /// Append-only record of every focus check, and the user's feedback on it.
 ///
-/// The activity log is prose for humans. This is the same events as structured rows, because two
-/// things need to read them back: you, at the end of a session ("it blocked me four times — was it
-/// right?"), and the experimental learner at `learner/`, which turns "that was a false alarm" into
-/// a policy that stops the same false alarm happening again.
-///
-/// One JSON object per line, appended and never rewritten — so a crash mid-write costs one line
-/// rather than the file, and the file can be tailed, grepped and fed to the learner without a
-/// database. The schema is a contract shared with the Windows and Android ports and with the
-/// learner: if you change a field name, change it in all four places.
+/// One JSON object per line, appended and never rewritten, so a crash mid-write costs one line
+/// rather than the file. The schema is shared with the Windows, Android and iOS ports and with the
+/// offline learner — change a field name in one place and you must change it in all four.
 enum Judgements {
 
     enum Feedback: String {
         case falseAlarm = "false_alarm"     // it blocked me and it was wrong
         case correct = "correct"            // it blocked me and it was right
-        /// The important, easily-forgotten one: a monitor tuned only on false alarms drifts
-        /// towards never blocking anything, which is a very comfortable failure.
+        /// Easily forgotten: a monitor tuned only on false alarms drifts towards never blocking.
         case missed = "missed"
     }
 
-    /// ~ a year of heavy use; trimmed from the front at launch when exceeded.
+    /// ~ a year of heavy use; trimmed from the front at launch.
     static let maxLines = 20_000
 
     private static let queue = DispatchQueue(label: "com.lockoutprotocol.guardian.judgements")
@@ -60,11 +53,8 @@ enum Judgements {
         return jid
     }
 
-    /// Attach the user's verdict-on-the-verdict.
-    ///
-    /// Written as a *new* row rather than an edit of the original: rewriting a line in place means
-    /// reading and rewriting the whole file, which is exactly the operation you don't want running
-    /// while the monitor is appending to it. Readers fold the pair together by id.
+    /// Written as a new row rather than an edit: rewriting a line in place means rewriting the
+    /// whole file, which is not something to do while the monitor is appending to it.
     static func addFeedback(_ judgementId: String, _ feedback: Feedback, note: String = "") {
         append([
             "id": "\(judgementId)#fb",
@@ -87,7 +77,7 @@ enum Judgements {
             } else {
                 try? data.write(to: fileURL, options: .atomic)
             }
-            // Telemetry must never be able to break monitoring, hence every `try?` above.
+            // Telemetry must never be able to break monitoring.
         }
     }
 
@@ -100,7 +90,7 @@ enum Judgements {
         for line in text.split(separator: "\n").suffix(limit * 2) {
             guard let data = line.data(using: .utf8),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                continue        // a torn final line after a hard kill is expected, not fatal
+                continue        // a torn final line after a hard kill
             }
             if let ref = obj["ref"] as? String {
                 if let idx = indexById[ref] {

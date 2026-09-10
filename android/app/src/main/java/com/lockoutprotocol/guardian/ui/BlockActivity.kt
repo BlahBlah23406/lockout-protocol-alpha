@@ -22,21 +22,16 @@ import com.lockoutprotocol.guardian.widget.FocusWidget
 import kotlin.concurrent.thread
 
 /**
- * Full-screen block shown over an off-task app (which stays alive in the background).
+ * Full-screen block shown over an off-task app, which stays alive in the background.
  *
- * This screen is STICKY: swiping up, pressing Home, Back, or switching apps does NOT get rid of it
- * — [BlockGate] puts it straight back. The only ways out are the buttons, and which buttons appear
- * is the entire difference between the two accountability levels a session can be started at:
+ * Sticky: swiping up, Home, Back or switching apps does not clear it — [BlockGate] puts it back.
+ * Which buttons appear is the whole difference between the accountability levels:
  *
- *  - **Self-managed** — "Not now" closes the app; "I'm on task" waves the block away with no
- *    passcode. You are being interrupted and it is going in the log, but you are the one holding
- *    the line.
- *  - **Locked** — "Not now" still works with no passcode. What locked costs is the *override*: to
- *    keep using the app you need the passcode, and the partner is told either way.
+ *  - Self-managed: "Not now" closes the app, "I'm on task" waves it away. No passcode either way.
+ *  - Locked: "Not now" still needs no passcode. The override does, and the partner is told.
  *
- * Safety: the no-passcode exit is present at EVERY level, it can never fail to release the gate,
- * and the gate self-expires after 5 minutes. This screen cannot lock anyone out of their phone —
- * see SAFEGUARDS.md. That is not negotiable, and a "locked" session does not change it.
+ * The no-passcode exit is present at every level and the gate self-expires after 5 minutes, so
+ * this screen cannot lock anyone out of their phone. See SAFEGUARDS.md.
  */
 class BlockActivity : AppCompatActivity() {
 
@@ -89,9 +84,8 @@ class BlockActivity : AppCompatActivity() {
     private fun buildUi(reason: String) {
         val isFocusBlock = sessionTask.isNotEmpty()
 
-        // A passcode is only required for a LOCKED session (or a content-rules block, which keeps
-        // the original behaviour). In a self-managed session the override is free by design — the
-        // interruption and the log entry are the accountability, not a code.
+        // Only a locked session (or a content-rules block) gates the override. In a self-managed
+        // session the interruption and the log entry are the accountability, not a code.
         val needsPin = prefs.pinSet && (locked || !isFocusBlock)
 
         val root = Lcars.root(this).apply { gravity = Gravity.CENTER }
@@ -121,8 +115,7 @@ class BlockActivity : AppCompatActivity() {
             .apply { visibility = if (needsPin) View.VISIBLE else View.GONE }
         root.addView(pin)
 
-        // The compliant exit is listed FIRST: going back to work should be the path of least
-        // resistance, not the override.
+        // Listed first: going back to work should be the path of least resistance.
         root.addView(Lcars.pill(this, "Not now \u00b7 close app", Lcars.ORANGE) { dismissAndClose() })
 
         val overrideLabel = if (needsPin) "Override" else "I'm on task \u00b7 keep using it"
@@ -134,7 +127,7 @@ class BlockActivity : AppCompatActivity() {
             }
         })
 
-        // Experimental: only when learning is on, and only for focus blocks.
+        // Experimental, and only for focus blocks.
         if (isFocusBlock && prefs.learningEnabled && judgementId.isNotEmpty()) {
             root.addView(Lcars.pill(this,
                 "This was a false alarm \u2014 it IS part of my task", Lcars.BLUE) {
@@ -166,11 +159,8 @@ class BlockActivity : AppCompatActivity() {
         return "$why\n\n$tail"
     }
 
-    /**
-     * "Override" — keep using the app. Also pauses the *session* briefly, not just this app: being
-     * re-challenged 90 seconds after you deliberately said "yes, I need this" is how a monitor
-     * teaches people to ignore it.
-     */
+    /** Keep using the app. Pauses the whole session briefly, not just this app: being
+     *  re-challenged 90 seconds after saying "yes, I need this" teaches people to ignore it. */
     private fun grantOverride() {
         EventLog.add("\ud83d\udd13 override granted for $pkg")
         Overrides.grant(pkg)
@@ -189,11 +179,8 @@ class BlockActivity : AppCompatActivity() {
         finish()
     }
 
-    /**
-     * A locked session that gets overridden is exactly the event a partner signed up to hear
-     * about — the block itself is only half the story. Fire-and-forget on a background thread:
-     * the override must not wait on the network, and a failed push must not trap the user here.
-     */
+    /** An override on a locked session is the event the partner signed up to hear about.
+     *  Fire-and-forget: the override must not wait on the network. */
     private fun alertOverride(task: String, count: Int) {
         val p = prefs
         val name = pkg.substringAfterLast('.')

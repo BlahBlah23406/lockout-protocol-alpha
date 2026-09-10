@@ -118,9 +118,8 @@ class SettingsActivity : AppCompatActivity() {
         val testProvider = Button(this).apply {
             text = "Test model connection"
             setOnClickListener {
-                // Save first, so the probe tests what the user just typed rather than what was
-                // stored. A dead local server takes the full connect timeout, so this is off the
-                // main thread.
+                // Save first, so the probe tests what was just typed. Off the main thread,
+                // because a dead server takes the full connect timeout.
                 prefs.providerBaseUrl = olUrl.text.toString().trim()
                 prefs.providerModel = olModel.text.toString().trim()
                 prefs.ollamaApiKey = olKey.text.toString().trim()
@@ -192,11 +191,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     // ---------- App picker ----------
-    /**
-     * The picker moved to [AppPickerActivity] so the focus start screen can reuse it for
-     * session-scoped selection. This entry point stays because `MainActivity` and older
-     * shortcuts still send `tab=apps` here.
-     */
+    /** Moved to [AppPickerActivity]; this entry point stays for callers still sending
+     *  `tab=apps`. */
     private fun buildAppPicker() {
         AppPickerActivity.openForDefaults(this)
         finish()
@@ -208,12 +204,8 @@ class SettingsActivity : AppCompatActivity() {
         setPadding(0, 32, 0, 8)
     }
 
-    /**
-     * The provider list. Tapping a row switches preset, which rewrites the URL and model fields —
-     * so the screen is rebuilt rather than trying to reach back into the EditTexts. Rebuilding
-     * discards unsaved edits to the other fields, which is why the rewrite only happens on an
-     * explicit tap.
-     */
+    /** Tapping a row rewrites the URL and model fields, so the screen is rebuilt. That discards
+     *  unsaved edits, which is why it only happens on an explicit tap. */
     private fun providerPicker(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         Providers.presets.forEach { preset ->

@@ -7,13 +7,9 @@ import com.lockoutprotocol.guardian.focus.Accountability
 import com.lockoutprotocol.guardian.focus.FocusSession
 
 /**
- * Focus-mode settings, as extension properties on [Prefs] so `Prefs.kt` stays the content-rules
- * original and the two concerns don't tangle.
- *
- * They read and write the same encrypted preferences file, via [Prefs.getString] / [Prefs.putString]
- * and friends — the small accessors added to `Prefs` for exactly this purpose. Keeping the keys
- * here rather than in `Prefs.kt` means the focus feature is one file to read and one file to
- * remove.
+ * Focus-mode settings, as extension properties on [Prefs], so the focus feature is one file to
+ * read and one file to remove. They use the same encrypted preferences file via the small
+ * accessors added to `Prefs` for this purpose.
  */
 object FocusKeys {
     const val PROVIDER_ID = "provider_id"
@@ -28,19 +24,15 @@ object FocusKeys {
     const val LEARNING = "learning_enabled"
 }
 
-// ---- Provider ------------------------------------------------------------------------------
-//
-// Stored as a preset id plus optional overrides rather than a free-form blob: the preset gives a
-// first-run user a working default in one tap, the overrides let a power user point at a gateway
-// we have never heard of.
+// A preset id plus optional overrides: the preset gives a working default in one tap, the
+// overrides let someone point at a gateway we've never heard of.
 
 var Prefs.providerId: String
     get() = getString(FocusKeys.PROVIDER_ID, "ollama-cloud")
     set(v) {
         val preset = Providers.preset(v) ?: return
         putString(FocusKeys.PROVIDER_ID, v)
-        // Switching provider rewrites URL + model to that preset's defaults. Carrying an Ollama
-        // model name over to Anthropic just produces a 404 forty minutes later.
+        // An Ollama model name carried over to Anthropic just 404s later.
         putString(FocusKeys.PROVIDER_URL, preset.baseUrl)
         putString(FocusKeys.PROVIDER_MODEL, preset.model)
     }
@@ -56,10 +48,8 @@ var Prefs.providerModel: String
 val Prefs.providerNeedsKey: Boolean
     get() = Providers.preset(providerId)?.needsKey ?: false
 
-/**
- * Snapshot for the monitor coroutine. Keys are omitted entirely for a provider that doesn't need
- * one, so a cloud key can never be accidentally posted to a machine on the local network.
- */
+/** Keys are omitted for a provider that doesn't need one, so a cloud key is never posted to a
+ *  machine on the local network. */
 fun Prefs.providerConfig(): Providers.Config {
     val preset = Providers.preset(providerId) ?: Providers.presets[0]
     val keys = if (preset.needsKey || providerId == "custom") apiKeys else emptyList()
@@ -86,31 +76,24 @@ var Prefs.focusMinutes: Int
     get() = getInt(FocusKeys.FOCUS_MINUTES, 60).coerceAtLeast(0)
     set(v) = putInt(FocusKeys.FOCUS_MINUTES, v.coerceAtLeast(0))
 
-/** Prefilled into the start screen and the widget — most sessions continue the last one. */
+/** Prefilled into the start screen and the widget. */
 var Prefs.lastTask: String
     get() = getString(FocusKeys.FOCUS_TASK, "")
     set(v) = putString(FocusKeys.FOCUS_TASK, v.trim().take(400))
 
-/**
- * Standing notes appended to every check — "my course PDFs open in Drive", that sort of thing.
- * Hand-written; the learner writes to a separate file and never edits this.
- */
+/** Standing notes appended to every check. Hand-written; the learner writes elsewhere. */
 var Prefs.focusNotes: String
     get() = getString(FocusKeys.FOCUS_NOTES, "")
     set(v) = putString(FocusKeys.FOCUS_NOTES, v.take(1500))
 
-/**
- * The original always-on content classifier, kept as an opt-in extra layer. Off by default: this
- * is a focus tool now, and running both classifiers doubles the cost of every check.
- */
+/** The original content classifier, opt-in. Running both doubles the cost of a check. */
 var Prefs.contentRulesEnabled: Boolean
     get() = getBool(FocusKeys.CONTENT_RULES, false)
     set(v) = putBool(FocusKeys.CONTENT_RULES, v)
 
 /**
- * Experimental: capture "that was a false alarm" feedback and apply the learned policy. Off by
- * default, because a self-control tool that learns from you can be taught to stop stopping you —
- * see `learner/README.md` for the anti-gaming design.
+ * Experimental. Off by default: a self-control tool that learns from you can be taught to stop
+ * stopping you. See `learner/README.md` for the anti-gaming design.
  */
 var Prefs.learningEnabled: Boolean
     get() = getBool(FocusKeys.LEARNING, false)

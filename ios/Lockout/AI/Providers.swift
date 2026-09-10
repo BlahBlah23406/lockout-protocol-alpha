@@ -1,19 +1,13 @@
 import Foundation
 
-/// Pluggable model providers, text-only.
+/// Model providers, text-only.
 ///
-/// This is the iOS sibling of `macos/Guardian/AI/Providers.swift`, and the difference between them
-/// is the whole iOS story in one line: **there is no image in the request.** The macOS version
-/// posts a JPEG of the screen; this one posts a task description and a list of app names, because
-/// iOS does not let an app see another app's screen and never will.
+/// The iOS sibling of `macos/Guardian/AI/Providers.swift`, minus the image: iOS does not let an
+/// app see another app's screen, so the request carries a task description and a list of app names
+/// instead. The model therefore need not be multimodal, which widens the choice considerably.
 ///
-/// A pleasant consequence is that the model no longer needs to be multimodal, which widens the
-/// choice a lot: any small text model will answer "which of these apps does 'math test prep'
-/// need?" perfectly well, including ones that run on a phone.
-///
-/// The retry and key fail-over policy is carried over unchanged, because the reasoning behind it
-/// is unchanged: a backend that is busy or out of credit is our problem, and must never silently
-/// leave a session unprotected.
+/// The retry and key fail-over policy is unchanged: a backend that is busy or out of credit must
+/// never silently leave a session unprotected.
 enum ProviderKind: String, Codable, Sendable {
     case ollama, openai, anthropic, custom
 }
@@ -30,8 +24,7 @@ struct ProviderPreset: Identifiable, Sendable {
 
 enum Providers {
 
-    /// Note the local option points at a LAN address, not `127.0.0.1`: on a phone localhost is the
-    /// phone, which is not where anyone is running a model server.
+    /// The local option points at a LAN address: on a phone `127.0.0.1` is the phone.
     static let presets: [ProviderPreset] = [
         .init(id: "ollama-cloud", kind: .ollama, label: "Ollama Cloud",
               baseUrl: "https://ollama.com", model: "gemma4:31b-cloud", needsKey: true,
@@ -67,8 +60,7 @@ enum Providers {
         var describe: String { "\(kind.rawValue):\(model)" }
     }
 
-    /// Either the assistant's text, or a human-readable reason there isn't any. Deliberately not
-    /// an `Error`: every caller wants to *say* what went wrong to the user, not rethrow it.
+    /// Not an `Error`: every caller shows the reason to the user rather than rethrowing.
     enum TextResult: Sendable {
         case success(String)
         case failure(String)
@@ -123,8 +115,7 @@ enum Providers {
             ], extraHeaders: ["anthropic-version": "2023-06-01"])
 
         case .openai, .custom:
-            // A URL that already ends in /v1 is left alone — appending a second one is the single
-            // most common way people misconfigure this.
+            // A URL that already ends in /v1 is left alone.
             let prefix = base.hasSuffix("/v1") ? base : base + "/v1"
             guard let url = URL(string: prefix + "/chat/completions") else { return nil }
             return BuiltRequest(url: url, payload: [
@@ -201,8 +192,7 @@ enum Providers {
         }
     }
 
-    /// One text completion, with retry and key fail-over. Returns a reason on failure rather than
-    /// throwing, because every caller shows that reason to the user.
+    /// One text completion, with retry and key fail-over.
     static func completeText(_ cfg: Config, system: String, user: String,
                              onKeyWorked: (@Sendable (String) -> Void)? = nil) async -> TextResult {
         guard let built = buildRequest(cfg, system: system, user: user) else {
@@ -247,7 +237,7 @@ enum Providers {
         return .failure(lastProblem)
     }
 
-    /// Cheap "can I talk to this at all?" probe for the settings screen. nil means fine.
+    /// "Can I talk to this at all?" probe for the settings screen. nil means fine.
     static func reachability(_ cfg: Config) async -> String? {
         guard !cfg.baseUrl.isEmpty else { return "no server URL set" }
         guard !cfg.model.isEmpty else { return "no model set" }

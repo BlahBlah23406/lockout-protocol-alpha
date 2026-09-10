@@ -52,11 +52,8 @@ struct SettingsView: View {
 
     // MARK: - Sections
 
-    /// Provider picker.
-    ///
-    /// A list of radio-style rows rather than a dropdown, on purpose: which model sees your screen
-    /// every two minutes is the most consequential setting in this app, and it deserves to be
-    /// visible all at once with its trade-off written next to it — not hidden behind a click.
+    /// Radio-style rows rather than a dropdown: which model sees your screen every two minutes is
+    /// the most consequential setting here, so every option and its trade-off is visible at once.
     private var aiSection: some View {
         section("Model provider") {
             ForEach(Providers.presets) { preset in
@@ -114,8 +111,7 @@ struct SettingsView: View {
         }
     }
 
-    /// Focus session defaults — what the start form is prefilled with. Every one of these can
-    /// still be changed per session.
+    /// What the start form is prefilled with; all still changeable per session.
     private var focusSection: some View {
         section("Focus session defaults") {
             HStack {
@@ -254,8 +250,8 @@ struct SettingsView: View {
     }
 
     /// Commit both key fields. Editing a key resets the fail-over to start at the first one.
-    /// Ask the configured endpoint whether it is actually there, so a user finds out their local
-    /// Ollama isn't running *now* rather than 40 minutes into a session.
+    /// Ask the configured endpoint whether it is actually there, rather than finding out 40
+    /// minutes into a session.
     private func testProvider() async {
         saveKeys()
         providerResult = "Testing…"

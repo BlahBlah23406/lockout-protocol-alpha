@@ -1,17 +1,12 @@
 """The full-screen block, in its two accountability levels.
 
-What the block *offers* is the entire difference between the two levels the user picks when
-starting a session, so it is worth stating plainly:
+Which buttons appear is the whole difference between the levels:
 
-    self    "Not now" ends the detour, "I'm on task" overrides it. No passcode. You are being
-            interrupted and it is going in the log, but you are the one holding the line.
-    locked  "Not now" still works with no passcode — the anti-lockout guarantee (SAFEGUARDS.md)
-            is absolute and applies at every level. What "locked" costs is the *override*: to
-            keep using the app you need the passcode, and your accountability partner is told.
+    self    "Not now" closes the app, "I'm on task" overrides. No passcode either way.
+    locked  "Not now" still needs no passcode. The *override* does, and the partner is told.
 
-Both levels always have a working, passcode-free way out of the overlay itself. The difference is
-never "you cannot leave", it is "leaving on your own terms is visible and costs something". A
-monitor that can genuinely trap someone on their own computer is a bug, not a feature.
+The passcode-free exit is present at every level. A monitor that can trap someone on their own
+computer is a bug — see SAFEGUARDS.md.
 """
 
 import tkinter as tk
@@ -78,8 +73,8 @@ def build(parent, app_name: str, reason: str, on_override, on_quit, focus: bool,
 
     wrong.pack()
 
-    # The compliant exit is listed FIRST and coloured as the primary action: the design should
-    # make going back to work the path of least resistance, not the override.
+    # Listed first and coloured as the primary action: going back to work should be the path of
+    # least resistance.
     T.LcarsButton(inner, f"Not now · close {app_name}", on_quit,
                   color=T.ORANGE, width=44).pack(pady=(10, 8))
 
@@ -87,7 +82,7 @@ def build(parent, app_name: str, reason: str, on_override, on_quit, focus: bool,
                       else f"I'm on task · keep using {app_name}")
     T.LcarsButton(inner, override_label, try_override, color=T.RED, width=44).pack()
 
-    # Experimental: only shown when the user has turned learning on, and only for focus blocks.
+    # Experimental, and only for focus blocks.
     if on_false_alarm is not None and prefs.learning_enabled and session is not None:
         def mark():
             try:

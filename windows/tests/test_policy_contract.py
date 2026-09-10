@@ -1,16 +1,12 @@
-"""The cross-platform contract between the learner and the four clients.
+"""The contract between the learner and the four clients.
 
-`focus_policy.json` is produced by offline Python and consumed by Python (Windows), Swift (macOS,
-iOS) and Kotlin (Android). Nothing compiles all four together, so nothing catches a drift in the
-shared format except a test like this one.
+`focus_policy.json` is produced by offline Python and read by Python, Swift and Kotlin. Nothing
+compiles all four together, so these tests read the other platforms' source as text and assert the
+shared constants agree.
 
-The bug that motivated it: the learner lower-cased the app id when writing a lookup key, and the
-Swift client didn't. On Windows that was invisible — `chrome.exe` is already lower-case — but on
-macOS the bundle id is `com.google.Chrome`, so *every* lookup missed and learning silently did
-nothing on one whole platform. Nobody would have noticed for months.
-
-So these tests read the OTHER platforms' source as text and assert the constants agree. That is
-unusual, and it is the point: the alternative is a contract that only breaks in production.
+That is unusual, and it has already caught one real bug: the learner lower-cased the app id in a
+lookup key and the Swift client didn't, so every lookup missed on macOS and learning silently did
+nothing there.
 """
 
 import json
@@ -67,7 +63,7 @@ class TestLookupKeyAgreement(unittest.TestCase):
             self.assertEqual(learner_policy.lookup_key(task, app), expected, task)
 
     def test_app_id_is_lower_cased(self):
-        """The bug this file exists for. A macOS bundle id has uppercase in it."""
+        """The bug this file exists for: a macOS bundle id has uppercase in it."""
         self.assertEqual(learner_policy.lookup_key("math test prep", "com.google.Chrome"),
                          "math-test-prep|com.google.chrome")
 
@@ -92,10 +88,9 @@ class TestLookupKeyAgreement(unittest.TestCase):
         for label, src in (("Swift", swift_source()), ("Kotlin", kotlin_source())):
             if not src:
                 continue
-            # Swift writes the list as `["the", "a", ...]`, Kotlin as `setOf("the", "a", ...)`, so
-            # the terminator differs. Matching either is the point: this test exists to catch a
-            # drift in the WORDS, and it must not fail merely because a port spells a set
-            # differently — nor silently pass because it couldn't find the literal at all.
+            # Swift writes `["the", ...]`, Kotlin `setOf("the", ...)`, so either terminator is
+            # accepted. The assert below is what matters; failing to find the literal at all is
+            # also a failure, not a silent pass.
             match = re.search(r'"the",\s*"a",\s*"an",(.*?)[\]\)]', src, re.S)
             self.assertIsNotNone(match, f"{label}: could not find the stopword literal")
             words = set(re.findall(r'"([a-z]+)"', '"the", "a", "an",' + match.group(1)))
@@ -148,8 +143,8 @@ class TestPolicyArtefactShape(unittest.TestCase):
             self.assertLessEqual(threshold, 1.0, key)
 
     def test_a_pre_allow_always_carries_title_evidence(self):
-        """The clients refuse a `pre_allow` with no title patterns, because an app-wide pre-allow
-        would silently un-watch a whole app. Assert the learner never emits one."""
+        """An app-wide pre-allow would silently un-watch a whole app, so the clients refuse one.
+        Assert the learner never emits it."""
         for key, entry in self.policy["decisions"].items():
             if entry.get("pre_allow"):
                 self.assertTrue(entry.get("title_patterns"),
@@ -169,7 +164,7 @@ class TestPolicyArtefactShape(unittest.TestCase):
 
 @unittest.skipUnless(HAVE_LEARNER, "learner package not present")
 class TestWindowsClientReadsRealPolicy(unittest.TestCase):
-    """End to end: a policy the learner actually produced, read by the shipping client."""
+    """A policy the learner actually produced, read by the shipping client."""
 
     def setUp(self):
         source = REPO_ROOT / "learner" / "data" / "focus_policy.json"
@@ -184,7 +179,7 @@ class TestWindowsClientReadsRealPolicy(unittest.TestCase):
         target = Path(self.tmp.name) / "focus_policy.json"
 
         policy = json.loads(source.read_text(encoding="utf-8"))
-        # The client expires anything older than 60 days; keep the fixture fresh.
+        # The client expires anything older than 60 days.
         policy["generated_at"] = time.time()
         target.write_text(json.dumps(policy), encoding="utf-8")
 

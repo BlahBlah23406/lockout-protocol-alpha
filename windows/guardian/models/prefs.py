@@ -255,11 +255,9 @@ class Prefs:
     def ollama_api_key(self) -> str:
         """The primary API key for whichever provider is selected.
 
-        Deliberately has no built-in fallback key. An earlier revision shipped a real Ollama Cloud
-        key as a literal in this file so first-run "just worked"; that key was in a public repo,
-        which means it was public. If nothing is configured we return "" and the UI says so —
-        an empty key produces a clear "add your API key" message, which is a far better first run
-        than a shared key that silently runs out of quota for everyone at once.
+        No built-in fallback, deliberately: an earlier revision shipped a real key as a literal in
+        this file, and the repo is public. An empty key produces a clear "add your API key"
+        message, which is a better first run than a shared key everyone exhausts at once.
         """
         k = SecretStore.get(K.ollama_key)
         if k:
@@ -322,10 +320,8 @@ class Prefs:
 
     # ---- model provider (focus mode) ----------------------------------------------------
     #
-    # Stored as a preset id plus optional overrides, rather than as a free-form blob. The preset
-    # gives a first-run user a working default in one click; the overrides let a power user point
-    # at a gateway we have never heard of. `provider_config()` resolves the two into the snapshot
-    # the network layer actually consumes.
+    # A preset id plus optional overrides: the preset gives a working default in one click, the
+    # overrides let someone point at a gateway we've never heard of.
 
     @property
     def provider_id(self) -> str:
@@ -339,8 +335,8 @@ class Prefs:
             return
         with self._lock:
             self._d[K.prov_id] = value
-            # Switching provider rewrites the URL/model to that preset's defaults. Keeping the
-            # old model name when you move from Ollama to Anthropic just produces a 404 later.
+            # Switching provider rewrites URL + model: an Ollama model name carried over to
+            # Anthropic just 404s later.
             self._d[K.prov_url] = preset["base_url"]
             self._d[K.prov_model] = preset["model"]
             self._save()
@@ -372,8 +368,8 @@ class Prefs:
         return bool(providers.PRESETS_BY_ID.get(self.provider_id, {}).get("needs_key"))
 
     def provider_config(self):
-        """Snapshot for the monitor thread. Keys are omitted entirely for local providers so we
-        never accidentally send a cloud key to `127.0.0.1`."""
+        """Snapshot for the monitor thread. Keys are omitted for local providers, so a cloud key
+        is never sent to 127.0.0.1."""
         from ..ai import providers
         preset = providers.PRESETS_BY_ID.get(self.provider_id, providers.PRESETS[0])
         keys = self.api_keys if preset.get("needs_key") or self.provider_id == "custom" else []
@@ -415,7 +411,7 @@ class Prefs:
 
     @property
     def last_task(self) -> str:
-        """Prefilled into the start box. Most sessions are a continuation of the last one."""
+        """Prefilled into the start box."""
         return self._get(K.focus_task, "")
 
     @last_task.setter
@@ -424,8 +420,7 @@ class Prefs:
 
     @property
     def focus_notes(self) -> str:
-        """Standing notes appended to every check — "my textbook PDFs open in Edge", that sort of
-        thing. Hand-written; the learner writes to a separate file and never edits this."""
+        """Standing notes appended to every check. Hand-written; the learner writes elsewhere."""
         return self._get(K.focus_notes, "")
 
     @focus_notes.setter
@@ -434,8 +429,8 @@ class Prefs:
 
     @property
     def content_rules_enabled(self) -> bool:
-        """The original content-safety classifier, kept as an opt-in extra layer. Off by default:
-        this is a focus tool now, and running both classifiers doubles the cost of every check."""
+        """The original content-safety classifier, opt-in. Running both doubles the cost of a
+        check, so it is off by default."""
         return bool(self._get(K.content_rules, False))
 
     @content_rules_enabled.setter
@@ -444,9 +439,8 @@ class Prefs:
 
     @property
     def learning_enabled(self) -> bool:
-        """Experimental: capture "that was a false alarm" feedback and apply the learned policy.
-        Off by default because a self-control tool that learns from you can be taught to stop
-        stopping you — see `learner/README.md` for the anti-gaming design."""
+        """Experimental. Off by default: a self-control tool that learns from you can be taught
+        to stop stopping you. See learner/README.md for the anti-gaming design."""
         return bool(self._get(K.learning, False))
 
     @learning_enabled.setter
@@ -483,9 +477,8 @@ class Prefs:
 
     @property
     def screen_capture_granted(self) -> bool:
-        """Last-known state of Guardian's ability to capture the screen — the Windows analogue of
-        the macOS Screen Recording (TCC) grant. The tamper guard compares against this so losing
-        capture is reported instead of failing silently."""
+        """Last-known screen-capture ability. The tamper guard compares against this so losing
+        capture is reported rather than failing silently."""
         return bool(self._get(K.cap_granted, False))
 
     @screen_capture_granted.setter

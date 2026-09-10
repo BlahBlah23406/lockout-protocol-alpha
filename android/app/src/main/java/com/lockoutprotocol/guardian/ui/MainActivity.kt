@@ -39,16 +39,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onResume() {
-        // Rebuilt rather than just refreshed: the primary button's label and colour depend on
-        // whether a session is running, and a session can start or end while this is backgrounded.
+        // Rebuilt, not refreshed: the primary button depends on whether a session is running,
+        // and one can start or end while this is backgrounded.
         if (this::status.isInitialized) buildUi()
         super.onResume()
         HeartbeatWorker.schedule(this)
-        // Session-scoped, not always-on. The service is only started when there is actually
-        // something for it to do: a live session, or content rules deliberately switched on.
-        // Starting it while idle would put a "monitoring" notification in the shade at a moment
-        // when nothing is being watched, which is the app misrepresenting itself in the one place
-        // Android guarantees the user will look.
+        // Session-scoped, not always-on. Starting the service while idle would put a
+        // "monitoring" notification in the shade when nothing is being watched.
         val shouldRun = SessionStore.isActive(this) || prefs.contentRulesEnabled
         prefs.monitoringEnabled = shouldRun
         if (shouldRun && ForegroundApp.accessibilityConnected && !MonitorService.isRunning) {
@@ -95,9 +92,8 @@ class MainActivity : AppCompatActivity() {
             // Drill: shows the real block screen so you can confirm it can't be swiped away.
             // Passes no package, so Dismiss just sends you Home instead of closing anything.
             addView(Lcars.pill(this@MainActivity, "Test block screen (drill)", Lcars.RED) {
-                // Passes no package, so "Not now" just sends you Home instead of closing anything.
-                // It DOES pass a task, so the drill shows the focus block people will actually
-                // meet rather than the content-rules one.
+                // No package, so "Not now" just sends you Home. A task, so the drill shows the
+                // focus block people actually meet.
                 BlockActivity.show(this@MainActivity, "",
                     "DRILL — this is a test, nothing was flagged.",
                     sessionTask = "(drill) whatever you declared",
@@ -108,10 +104,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(ScrollView(this).apply { addView(container) })
     }
 
-    /**
-     * Start or open the session. Deliberately the first control on the screen: monitoring is no
-     * longer a mode you leave running, it begins and ends with a session.
-     */
+    /** The first control on the screen: monitoring begins and ends with a session. */
     private fun sessionButton(): android.widget.Button {
         val session = SessionStore.current(this)
         val label = if (session == null) "Start a focus session" else "Session running \u00b7 open"

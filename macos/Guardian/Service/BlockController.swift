@@ -21,9 +21,8 @@ final class BlockController: ObservableObject {
         let bundleId: String
         let appName: String
         let reason: String
-        /// nil for a content-rules block. Decides which accountability level the overlay is
-        /// shown at, so the level is read from the session that was actually started rather than
-        /// from a global setting that could have drifted since.
+        /// nil for a content-rules block. The level is read from the session that was actually
+        /// started, not from a global setting that could have drifted.
         var session: FocusSession?
         /// Ties a later "false alarm" press back to the exact check that caused this block.
         var judgementId: String = ""
@@ -66,12 +65,8 @@ final class BlockController: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// "Override" — keep using the app. Grants a 5-minute reprieve and tears down the overlay.
-    /// In a locked session the passcode was already checked in `BlockView`.
-    ///
-    /// The override also pauses the *session* briefly, not just this app. Being re-challenged 90
-    /// seconds after you deliberately said "yes, I need this" is how a monitor teaches people to
-    /// ignore it, and an override you paid for with a passcode should buy a little peace.
+    /// Keep using the app. Pauses the whole session briefly, not just this app: being
+    /// re-challenged 90 seconds after saying "yes, I need this" teaches people to ignore it.
     func finishOverride() {
         let info = current
         if let info { Overrides.grant(info.bundleId) }
@@ -86,14 +81,13 @@ final class BlockController: ObservableObject {
         teardown()
     }
 
-    /// Experimental: record that this block was wrong, for the learner to pick up later.
+    /// Record that this block was wrong, for the learner to pick up later.
     func markFalseAlarm() {
         guard let info = current, !info.judgementId.isEmpty else { return }
         Judgements.addFeedback(info.judgementId, .falseAlarm)
     }
 
-    /// A locked session that gets overridden is exactly the event a partner signed up to hear
-    /// about — the block itself is only half the story.
+    /// An override on a locked session is the event the partner signed up to hear about.
     private func alertOverride(appName: String, session: FocusSession) {
         let prefs = Prefs.shared
         let cfg = Pusher.Config(enabled: prefs.pushEnabled, server: prefs.ntfyServer,

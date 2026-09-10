@@ -1,18 +1,11 @@
 """Append-only record of every focus check, and the user's feedback on it.
 
-The activity log is prose for humans. This is the same events as structured rows, because two
-things need to read them back:
+The activity log is prose for humans; this is the same events as structured rows, read back by the
+end-of-session summary and by the offline learner at `learner/`.
 
-  1. **You**, at the end of a session: "it blocked me four times — was it right?"
-  2. **The experimental learner** (`learner/` at the repo root), which turns "that was a false
-     alarm" into a policy that stops the same false alarm happening again.
-
-One JSON object per line, appended and never rewritten. That format is chosen so a crash mid-write
-costs one line rather than the file, and so the file can be tailed, grepped, and fed to the
-learner without a database.
-
-The schema is a contract shared with the macOS and Android ports and with the learner — if you
-change a field name, change it in all four places.
+One JSON object per line, appended and never rewritten, so a crash mid-write costs one line rather
+than the file. The schema is shared with the macOS, Android and iOS ports and with the learner —
+change a field name in one place and you must change it in all four.
 """
 
 import json
@@ -23,19 +16,17 @@ from ..paths import data_dir
 
 JUDGEMENTS_FILE = data_dir() / "judgements.jsonl"
 
-# Feedback values. `missed` is the important and easily-forgotten one: a monitor tuned only on
-# false alarms drifts towards never blocking anything, which is a very comfortable failure.
 FB_FALSE_ALARM = "false_alarm"      # it blocked me and it was wrong
 FB_CORRECT = "correct"              # it blocked me and it was right
 FB_MISSED = "missed"                # it let this through and it shouldn't have
 
 _lock = threading.RLock()
-MAX_LINES = 20000                   # ~ a year of heavy use; trimmed from the front when exceeded
+MAX_LINES = 20000
 
 
 def record(session, app, app_name, window_title, verdict_name, reason, confidence,
            action, provider) -> str:
-    """Append one judgement and return its id, so a later feedback press can find this exact row."""
+    """Append one judgement and return its id, so a later feedback press can find this row."""
     jid = f"j_{int(time.time() * 1000)}"
     row = {
         "id": jid,
@@ -68,12 +59,8 @@ def _append(row: dict) -> None:
 
 
 def add_feedback(judgement_id: str, feedback: str, note: str = "") -> bool:
-    """Attach the user's verdict-on-the-verdict.
-
-    Written as a *new* row rather than an edit of the original. Rewriting a line in place means
-    reading and rewriting the whole file, which is exactly the operation you don't want happening
-    while the monitor thread is appending to it. The learner folds the pair together by id.
-    """
+    """Written as a new row rather than an edit: rewriting a line in place means rewriting the
+    whole file, which is not something to do while the monitor thread is appending to it."""
     if feedback not in (FB_FALSE_ALARM, FB_CORRECT, FB_MISSED):
         return False
     _append({
@@ -88,7 +75,7 @@ def add_feedback(judgement_id: str, feedback: str, note: str = "") -> bool:
 
 
 def read_all(limit: int = 2000) -> list:
-    """Read back the tail of the log, with feedback rows folded into the judgements they refer to."""
+    """The tail of the log, with feedback rows folded into the judgements they refer to."""
     try:
         lines = JUDGEMENTS_FILE.read_text(encoding="utf-8").splitlines()
     except Exception:
@@ -99,7 +86,7 @@ def read_all(limit: int = 2000) -> list:
         try:
             obj = json.loads(line)
         except Exception:
-            continue                # a torn final line after a hard kill; skip it, don't fail
+            continue                # a torn final line after a hard kill
         ref = obj.get("ref")
         if ref:
             target = by_id.get(ref)
@@ -131,7 +118,6 @@ def trim() -> None:
 
 
 def session_stats(session_id: str) -> dict:
-    """Counts for the end-of-session summary card."""
     checks = off = blocked = false_alarms = 0
     for r in read_all():
         if r.get("session_id") != session_id:

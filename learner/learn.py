@@ -1,64 +1,29 @@
 """The learner: three composable mechanisms, and the guard that keeps them honest.
 
-WHAT IT LEARNS FROM
--------------------
-One signal, pressed by a human on a block screen: `false_alarm` ("you were wrong to stop me"),
-`correct` ("you were right"), `missed` ("you should have stopped me and didn't"). Everything
-below is bookkeeping over those three verbs.
+It learns from one signal, pressed by a human on a block screen: `false_alarm`, `correct`, or
+`missed`. Everything below is bookkeeping over those three verbs.
 
-THE THREE MECHANISMS
---------------------
-(a) EXEMPLAR MEMORY -- the strongest confirmed false alarms become short sentences appended to
-    the classifier prompt, under the "PREVIOUSLY CONFIRMED BY THE USER" heading that
-    `ai/providers.build_user_prompt` already renders. This is the cheapest mechanism to build and
-    the only one that can generalise: telling the model "Chrome showing khanacademy.org is part
-    of this task" also helps it on a Khan Academy page it has never seen. It is capped hard
-    (1200 chars) because every character is paid for on every check, hundreds of times a session.
-
-(b) SIGNATURE ALLOWANCES -- a (task-cluster, app, title-pattern) triple that has been confirmed a
-    false alarm repeatedly, across separate days, becomes a pre-model decision: skip the check
-    entirely (`pre_allow`) or run it but never block on it (`downgrade`). This is the mechanism
-    that actually removes interruptions, because it does not depend on a model changing its mind.
-    It is also the dangerous one, which is why it needs the most evidence and expires on its own.
-
-(c) CONFIDENCE CALIBRATION -- a per-(task-cluster, app) block threshold. Off-task verdicts below
-    the threshold are logged instead of blocked. False alarms push it up, `missed` feedback
-    pushes it down twice as fast. Asymmetric on purpose: the user is asking a tool to stop them,
-    and a tool that loosens as fast as it tightens will ratchet itself into uselessness.
+  (a) EXEMPLAR MEMORY   confirmed false alarms become short sentences appended to the classifier
+                        prompt. The only mechanism that generalises, and the cheapest to build.
+  (b) SIGNATURE ALLOWANCES  a (task-cluster, app, title-pattern) triple confirmed repeatedly,
+                        across separate days, becomes a pre-model decision: skip the check
+                        (`pre_allow`) or run it but never block (`downgrade`). The mechanism that
+                        actually removes interruptions, and the dangerous one.
+  (c) CONFIDENCE CALIBRATION  a per-(task-cluster, app) block threshold. False alarms push it up;
+                        `missed` pushes it down twice as fast, because a tool that loosens as fast
+                        as it tightens ratchets itself into uselessness.
 
 They compose in that order at apply time: an allowance short-circuits the check, otherwise the
 threshold decides blocking, and the exemplars ride along on every prompt regardless.
 
-THE ANTI-GAMING GUARD  (read this before changing any number in LearnConfig)
----------------------------------------------------------------------------
-The user of a self-control tool is not a neutral labeller. They are the person the tool exists to
-stop, holding a button marked "stop stopping me". Every loosening path here is therefore rate
-limited, capped, evidence-gated, expiring, and observable:
-
-  1. RATE LIMIT      -- at most `max_credited_fa_per_day` false alarms per rolling 24h are
-                        credited. Later presses are still recorded (they are evidence about the
-                        USER) but teach nothing.
-  2. REFLEX FILTER   -- a press within `reflex_seconds` of the block is not a considered judgement;
-                        it is a reflex. Recorded, not credited.
-  3. PER-SIGNATURE CAP -- one signature can bank at most `max_evidence_per_signature` credits.
-                        Spamming the same block a hundred times buys nothing beyond the tenth.
-  4. EVIDENCE SPREAD -- an allowance needs `allow_min_evidence` credits across at least
-                        `allow_min_distinct_days` separate calendar days. One angry sitting cannot
-                        unlock anything.
-  5. CONTRADICTION   -- `correct` presses subtract from a signature's evidence; a single `missed`
-                        on the same signature revokes its allowance outright.
-  6. EXPIRY          -- allowances die `allow_ttl_days` after their last credited evidence. What
-                        was true during exam season stops being true afterwards, silently.
-  7. HARD CEILING    -- the block threshold can never exceed `threshold_ceiling` (0.85), so a
-                        confident off-task verdict blocks no matter how much the policy has been
-                        taught. There is no sequence of button presses that turns blocking off.
-  8. NEVER-PRE-ALLOW -- a set of domains that are overwhelmingly leisure can reach `downgrade` at
-                        most, never `pre_allow`. The check still runs and is still logged, so the
-                        accountability partner still sees it.
-  9. VISIBILITY      -- `integrity` in the compiled policy carries a gaming score and a plain
-                        sentence for the app to push over ntfy. Learning being used to erode the
-                        rules is itself reportable; that is the real deterrent, since every
-                        mechanical limit above can eventually be waited out.
+THE ANTI-GAMING GUARD — read `learner/README.md` before changing any number in `LearnConfig`.
+The user of a self-control tool is not a neutral labeller; they are the person the tool exists to
+stop, holding a button marked "stop stopping me". So every loosening path is rate limited, capped,
+evidence-gated, expiring and observable: a daily credit cap, a reflex filter, a per-signature cap,
+an evidence spread across separate days, contradiction handling, expiry, a hard threshold ceiling
+that no sequence of presses can lift, a never-pre-allow set for leisure domains, and an integrity
+score the app can push to the accountability partner. The README documents each with its measured
+effect; the mechanical limits can be waited out, so the visibility is the real deterrent.
 """
 
 import math

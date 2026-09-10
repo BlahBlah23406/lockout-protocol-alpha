@@ -1,14 +1,8 @@
-"""The "what are you working on?" window — the front door of the whole app.
+"""The "what are you working on?" window.
 
-Everything about this screen is trying to get the user to typing and pressing START in under ten
-seconds, because a focus tool that takes two minutes to arm gets used on the days you least need
-it and skipped on the days you do. So: the task box is prefilled with last time's answer and
-focused on open, every other field has a working default carried over from settings, and the
-per-session app tweaks are one line of summary text behind one button.
-
-The one place we deliberately add friction is the accountability picker. Choosing "locked" means
-handing your own passcode over to future-you-who-wants-to-stop, so the consequences are spelled
-out next to the option rather than hidden in a docs page.
+Prefilled from last time and focused on open, so starting a session takes one keypress. The
+accountability picker is the exception: its consequences are spelled out next to each option
+rather than left in the docs.
 """
 
 import tkinter as tk
@@ -154,7 +148,7 @@ class FocusStartWindow(tk.Toplevel):
                  wraplength=520, justify="left").pack(anchor="w", padx=(22, 6), pady=(0, 4))
 
     def _refresh_warning(self):
-        """Say the awkward part out loud before they commit, not after."""
+        """Warn about a locked session's missing prerequisites before it is started."""
         if self.accountability.get() != ACC_LOCKED:
             self.acc_warning.configure(text="")
             return
@@ -181,9 +175,8 @@ class FocusStartWindow(tk.Toplevel):
                  "defaults excuses it for this session only. Neither edits your saved watchlist.")
 
     def _on_apps(self, selected: set):
-        """Store the *delta* against the saved defaults, not a copy of the list. If you later edit
-        your default watchlist mid-session, a session started before that edit still tracks it —
-        which is what people expect, and what a snapshot would silently get wrong."""
+        """Store the delta against the saved defaults, not a copy: editing the defaults later
+        should still affect a session started before the edit."""
         default = self.prefs.monitored_apps
         self._extra_apps = set(selected) - default
         self._allowed_apps = default - set(selected)
@@ -201,9 +194,8 @@ class FocusStartWindow(tk.Toplevel):
     # ---- start -------------------------------------------------------------------------
 
     def start_now(self):
-        """Start immediately with whatever is prefilled — the "same again" path from the mini
-        panel. Goes through exactly the same validation as the button, so a one-click restart
-        cannot skip the checks (an open-ended locked session, an empty watchlist)."""
+        """The "same again" path from the mini panel. Goes through the same validation as the
+        button, so a one-click restart can't skip the checks."""
         self._start()
 
     def _start(self):
@@ -215,8 +207,7 @@ class FocusStartWindow(tk.Toplevel):
         acc = self.accountability.get()
         minutes = int(self.minutes.get() or 0)
         if acc == ACC_LOCKED and minutes == 0:
-            # An open-ended locked session plus a forgotten passcode is the one shape that could
-            # genuinely trap someone. Refuse to create it.
+            # Open-ended + locked + a forgotten passcode is the one shape that could trap someone.
             self.error.configure(
                 text="A locked session needs an end time — open-ended locked sessions aren't allowed.")
             return

@@ -2,18 +2,13 @@ import SwiftUI
 
 /// The full-screen block, in its two accountability levels.
 ///
-/// What the block *offers* is the entire difference between the two levels, so it is worth
-/// stating plainly:
+/// Which buttons appear is the whole difference between the levels:
 ///
-/// - `.selfManaged` — "Not now" ends the detour, "I'm on task" overrides it. No passcode. You are
-///   being interrupted and it is going in the log, but you are the one holding the line.
-/// - `.locked` — "Not now" still works with no passcode. What "locked" costs is the *override*:
-///   to keep using the app you need the passcode, and your accountability partner is told.
+/// - `.selfManaged` — "Not now" closes the app, "I'm on task" overrides. No passcode either way.
+/// - `.locked` — "Not now" still needs no passcode. The override does, and the partner is told.
 ///
-/// Both levels always have a working, passcode-free way out of the overlay itself. The difference
-/// is never "you cannot leave", it is "leaving on your own terms is visible and costs something".
-/// A monitor that can genuinely trap someone on their own Mac is a bug, not a feature — see
-/// `SAFEGUARDS.md`.
+/// The passcode-free exit is present at every level. A monitor that can trap someone on their own
+/// Mac is a bug — see `SAFEGUARDS.md`.
 struct BlockView: View {
     let appName: String
     let reason: String
@@ -113,8 +108,7 @@ struct BlockView: View {
 
     private var actions: some View {
         VStack(spacing: 10) {
-            // The compliant exit is listed FIRST and coloured as the primary action: going back to
-            // work should be the path of least resistance, not the override.
+            // Listed first: going back to work should be the path of least resistance.
             LcarsButton(title: "Not now · quit \(appName)", color: LCARS.orange) { onQuit() }
                 .frame(width: 400)
 
@@ -123,7 +117,7 @@ struct BlockView: View {
                         color: LCARS.red, action: tryOverride)
                 .frame(width: 400)
 
-            // Experimental: only when learning is on, and only for focus blocks.
+            // Experimental, and only for focus blocks.
             if let onFalseAlarm, prefs.learningEnabled, session != nil {
                 Button("This was a false alarm — it IS part of my task") {
                     onFalseAlarm()

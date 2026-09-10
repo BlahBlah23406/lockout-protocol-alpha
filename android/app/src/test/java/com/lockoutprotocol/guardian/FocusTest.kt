@@ -13,12 +13,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for focus mode: sessions, the provider wire formats, and the never-block-on-failure
- * rule. Plain JVM tests — nothing here needs a device, a network, or a screen.
+ * Focus mode: sessions, the provider wire formats, and the never-block-on-failure rule. Plain JVM
+ * tests — no device, network or screen.
  *
- * These mirror `windows/tests/test_focus.py` case for case on purpose. The three ports have to
- * agree about what a verdict means and what a session watches, and the cheapest way to keep them
- * honest is to ask them the same questions.
+ * These mirror `windows/tests/test_focus.py` case for case: the ports have to agree about what a
+ * verdict means, and the cheapest way to keep them honest is to ask the same questions.
  */
 class FocusTest {
 
@@ -35,8 +34,7 @@ class FocusTest {
 
     @Test
     fun `watchlist tracks later edits to the defaults`() {
-        // The session stores a delta, not a snapshot: editing the default list mid-session is
-        // expected to take effect, which a copied list would silently get wrong.
+        // A delta, not a snapshot: editing the defaults mid-session should take effect.
         val s = FocusSession(task = "essay", extraApps = setOf("com.game"))
         assertEquals(setOf("com.android.chrome", "com.game"),
             s.watchlist(setOf("com.android.chrome")))
@@ -82,8 +80,7 @@ class FocusTest {
 
     @Test
     fun `an unknown accountability value falls back to self`() {
-        // Fail towards the WEAKER mode. A corrupt prefs file must not silently promote someone
-        // into a locked session whose passcode they never set.
+        // Fail towards the weaker mode.
         assertEquals(Accountability.SELF, Accountability.from("admin"))
         assertEquals(Accountability.SELF, Accountability.from(null))
         assertEquals(Accountability.LOCKED, Accountability.from("locked"))
@@ -128,8 +125,7 @@ class FocusTest {
 
     @Test
     fun `markdown fences are stripped`() {
-        // Small models fence their JSON no matter what the prompt says; throwing that answer away
-        // would turn a correct verdict into an unnecessary "couldn't verify".
+        // Small models fence their JSON regardless of the prompt.
         val v = Providers.parseFocusJson("```json\n{\"on_task\": false, \"reason\": \"game\"}\n```")
         assertTrue(v.offTask)
         assertEquals("game", v.reason)
@@ -215,8 +211,7 @@ class FocusTest {
 
     @Test
     fun `a base url already ending in v1 is not doubled`() {
-        // The single most common misconfiguration: pasting a gateway URL that already ends in /v1
-        // and getting /v1/v1/chat/completions.
+        // The most common misconfiguration: /v1/v1/chat/completions.
         val built = Providers.buildRequest(cfg(ProviderKind.CUSTOM, "http://10.0.0.5:1234/v1"),
             "B64", "sys", "usr")
         assertEquals("http://10.0.0.5:1234/v1/chat/completions", built.url)
@@ -266,8 +261,7 @@ class FocusTest {
 
     @Test
     fun `a missing model is undetermined not a block`() {
-        // Guards the whole class of "our configuration is broken" failures: they cost the user
-        // nothing. Checked via validateConfig so the test needs no Bitmap.
+        // "Our configuration is broken" must cost the user nothing.
         val v = Providers.validateConfig(
             Providers.Config(ProviderKind.OLLAMA, "http://x", "", emptyList(), "t"))
         assertNotNull(v)
@@ -315,7 +309,7 @@ class FocusTest {
 
     @Test
     fun `system prompt defaults to on-task`() {
-        // The asymmetry against false alarms is a product decision, so it is pinned by a test.
+        // The bias against false alarms is a product decision, so it is pinned.
         assertTrue(Providers.FOCUS_SYSTEM.contains("DEFAULT TO on_task"))
     }
 
@@ -323,8 +317,7 @@ class FocusTest {
 
     @Test
     fun `lookup key matches the learner's normalisation`() {
-        // Must agree character for character with `learner/policy.py:lookup_key` and the Swift
-        // client, or a learned policy silently never matches on this platform.
+        // Must agree character for character with learner/policy.py and the Swift client.
         assertEquals("math-test-prep|com.android.chrome",
             LearnedPolicy.lookupKey("working on math test prep", "com.android.chrome"))
         assertEquals("applying-jobs|com.android.chrome",
@@ -342,8 +335,7 @@ class FocusTest {
 
     @Test
     fun `lookup key lower-cases the package`() {
-        // Android package names are conventionally lower-case but not required to be, and the
-        // learner lower-cases before writing the key.
+        // Package names are conventionally lower-case but not required to be.
         assertEquals("math-test-prep|com.example.myapp",
             LearnedPolicy.lookupKey("math test prep", "com.Example.MyApp"))
     }
@@ -354,7 +346,7 @@ class FocusTest {
         for (preset in Providers.presets) {
             assertNotNull(Providers.preset(preset.id))
             assertTrue("${preset.id} needs a hint", preset.hint.isNotBlank())
-            // Only the free-form "custom" entry is allowed to ship without a URL and model.
+            // Only the free-form "custom" entry may ship without a URL and model.
             if (preset.id != "custom") {
                 assertTrue("${preset.id} needs a base URL", preset.baseUrl.isNotBlank())
                 assertTrue("${preset.id} needs a model", preset.model.isNotBlank())
@@ -364,8 +356,7 @@ class FocusTest {
 
     @Test
     fun `learned threshold ceiling is below one`() {
-        // The client-side ceiling on how far learning may erode the monitor. If this ever reached
-        // 1.0, a generated policy file could switch blocking off entirely.
+        // At 1.0 a generated policy file could switch blocking off entirely.
         assertTrue(LearnedPolicy.MAX_THRESHOLD < 1.0)
         assertEquals(0.85, LearnedPolicy.MAX_THRESHOLD, 0.001)
     }

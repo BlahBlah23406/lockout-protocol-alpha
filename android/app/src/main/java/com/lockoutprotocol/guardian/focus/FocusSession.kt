@@ -8,18 +8,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Which accountability level a session was started at.
+ * The two accountability levels, differing only in who holds the exit.
  *
- * This is the choice the whole product turns on, and the difference is *who holds the exit*:
- *
- *  - [SELF]   You can end the session or dismiss a block yourself, no passcode. The block still
- *             interrupts you and still goes in the log — the friction is the product — but you are
- *             the only one holding you to it. The honest default for most people.
- *  - [LOCKED] Ending the session early, or overriding a block, needs the passcode, and both fire
- *             an ntfy alert to your accountability partner's private link.
- *
- * Neither level can ever trap you: closing a blocked app is always passcode-free (SAFEGUARDS.md).
- * What "locked" costs is the *override*, not the escape.
+ * Neither can trap you: closing a blocked app is always passcode-free. What [LOCKED] costs is the
+ * override, not the escape. See SAFEGUARDS.md.
  */
 enum class Accountability(val id: String) {
     SELF("self"),
@@ -39,38 +31,28 @@ enum class Accountability(val id: String) {
                 "pushed to your accountability partner. Closing the app still always works."
         }
 
-    /** Only a locked session holds its own exit. */
     val requiresPasscodeToEnd: Boolean get() = this == LOCKED
     val alertsPartner: Boolean get() = this == LOCKED
 
     companion object {
-        fun from(id: String?): Accountability =
-            entries.firstOrNull { it.id == id } ?: SELF     // fail towards the weaker mode
+        /** Unknown values fall back to the weaker mode, never the stronger one. */
+        fun from(id: String?): Accountability = entries.firstOrNull { it.id == id } ?: SELF
     }
 }
 
 /**
- * One declared stretch of work: a task in the user's own words, for a length of time, over a set
- * of apps, checked every [intervalSeconds].
- *
- * The app is organised around this rather than around an always-on mode, and that is a product
- * decision, not a refactor: **when no session is running, no screenshot is taken at all.** On
- * Android that matters more than anywhere else — the app holds an AccessibilityService that can
- * read the screen, and "only while you asked it to" is the difference between a tool people keep
- * installed and one they don't.
+ * One declared stretch of work. When no session is running, no screenshot is taken at all — which
+ * matters more here than on the desktop, since the app holds an AccessibilityService.
  */
 data class FocusSession(
     val id: String = "fs_" + UUID.randomUUID().toString().take(10).lowercase(),
     val task: String,
     val startedAt: Long = System.currentTimeMillis(),
-    /**
-     * 0 means open-ended. Deliberately not offered for [Accountability.LOCKED] — an open-ended
-     * locked session plus a forgotten passcode is the one shape that could genuinely trap someone.
-     */
+    /** 0 = open-ended. Not offered for [Accountability.LOCKED]: open-ended plus a forgotten
+     *  passcode is the one shape that could genuinely trap someone. */
     val plannedMinutes: Int = 0,
     val intervalSeconds: Int = DEFAULT_INTERVAL,
     val accountability: Accountability = Accountability.SELF,
-    /** One-off, this-session-only adjustments layered over the saved default watchlist. */
     val extraApps: Set<String> = emptySet(),
     val allowedApps: Set<String> = emptySet(),
     val providerId: String = "",
@@ -83,15 +65,10 @@ data class FocusSession(
 ) {
 
     /**
-     * The apps actually watched this session: your saved defaults, plus anything you added just for
-     * today, minus anything you excused just for today.
-     *
-     * The exclusion is not a loophole — it is what makes a default list usable. If Slack is
-     * normally a distraction but today's task *is* answering Slack, you shouldn't have to edit your
-     * permanent settings and then forget to put them back.
+     * Saved defaults, plus anything added just for today, minus anything excused just for today.
+     * Stored as a delta rather than a copy, so editing the defaults mid-session takes effect.
      */
-    fun watchlist(defaults: Set<String>): Set<String> =
-        (defaults + extraApps) - allowedApps
+    fun watchlist(defaults: Set<String>): Set<String> = (defaults + extraApps) - allowedApps
 
     val isActive: Boolean get() = endedAt == null
     val elapsedMs: Long get() = (System.currentTimeMillis() - startedAt).coerceAtLeast(0)
@@ -107,9 +84,7 @@ data class FocusSession(
     val remainingText: String
         get() {
             val left = remainingMs ?: return "open-ended"
-            val mins = left / 60_000
-            val secs = (left % 60_000) / 1000
-            return "${mins}m ${secs.toString().padStart(2, '0')}s left"
+            return "${left / 60_000}m ${((left % 60_000) / 1000).toString().padStart(2, '0')}s left"
         }
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -131,11 +106,8 @@ data class FocusSession(
     }
 
     companion object {
-        /**
-         * Seconds between checks. Below a minute you pay for inference constantly and get
-         * interrupted by transients; above five a real detour has already eaten the block it
-         * should have stopped.
-         */
+        /** Below a minute you pay for inference constantly; above five a detour has already eaten
+         *  the block it should have prevented. */
         const val DEFAULT_INTERVAL = 120
         const val MIN_INTERVAL = 15
         const val MAX_INTERVAL = 3600
@@ -170,12 +142,10 @@ data class FocusSession(
 }
 
 /**
- * The one active session, on disk, plus an append-only history of finished ones.
+ * The one active session, on disk, plus an append-only history.
  *
- * Persistence is load-bearing, not a nicety: Android kills foreground services, and if a restart
- * silently cancelled a locked session then force-stopping the app would be a one-tap bypass and
- * "locked" would be worth nothing. The session file is the source of truth, so a relaunch — after
- * a crash, a kill, or a reboot — picks it back up where it was.
+ * Persistence is load-bearing: Android kills foreground services, and if a restart silently
+ * cancelled a locked session then force-stopping the app would be a one-tap bypass.
  */
 object SessionStore {
 
@@ -191,9 +161,7 @@ object SessionStore {
 
     fun subscribe(fn: () -> Unit) { listeners += fn }
 
-    private fun notifyChanged() {
-        listeners.toList().forEach { runCatching { it() } }
-    }
+    private fun notifyChanged() = listeners.toList().forEach { runCatching { it() } }
 
     private fun load(ctx: Context) {
         if (loaded) return
@@ -205,10 +173,8 @@ object SessionStore {
         }.getOrNull()
     }
 
-    /**
-     * The live session, or null. Expiry is evaluated lazily on read so nothing depends on a timer
-     * having fired — a phone that was in Doze past the end time still ends its session cleanly.
-     */
+    /** The live session, or null. Expiry is evaluated on read, so a phone in Doze past the end
+     *  time still ends its session cleanly. */
     @Synchronized
     fun current(ctx: Context): FocusSession? {
         load(ctx)
@@ -244,10 +210,7 @@ object SessionStore {
         notifyChanged()
     }
 
-    /**
-     * Used by the block screen's override: stop checking for a bit so the user isn't re-blocked
-     * mid-sentence while they finish what they said they needed to do.
-     */
+    /** Used by the block screen's override, so the user isn't re-blocked mid-sentence. */
     @Synchronized
     fun pause(ctx: Context, millis: Long) {
         load(ctx)
@@ -285,8 +248,8 @@ object SessionStore {
             if (s == null) {
                 f.delete()
             } else {
-                // Write-then-rename: a kill mid-write must not leave a truncated session file,
-                // because an unreadable session reads as "no session" and silently unlocks.
+                // Write-then-rename: a kill mid-write must not leave a truncated file, because an
+                // unreadable session reads as "no session" and silently unlocks.
                 val tmp = File(ctx.filesDir, "$SESSION_FILE.tmp")
                 tmp.writeText(s.toJson().toString())
                 tmp.renameTo(f)
@@ -294,7 +257,7 @@ object SessionStore {
         }
     }
 
-    /** Finished sessions, newest last. A torn final line after a hard kill is skipped, not fatal. */
+    /** Finished sessions, newest last. A torn final line after a hard kill is skipped. */
     fun history(ctx: Context, limit: Int = 50): List<FocusSession> {
         val f = historyFile(ctx)
         if (!f.exists()) return emptyList()
@@ -305,6 +268,5 @@ object SessionStore {
         }.getOrDefault(emptyList())
     }
 
-    /** Convenience for the widget and the start screen. */
     fun defaultsFor(ctx: Context): Set<String> = Prefs.get(ctx).monitoredPackages
 }

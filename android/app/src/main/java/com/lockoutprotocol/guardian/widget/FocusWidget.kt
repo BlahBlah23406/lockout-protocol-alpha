@@ -15,19 +15,11 @@ import com.lockoutprotocol.guardian.focus.SessionStore
 import com.lockoutprotocol.guardian.ui.FocusStartActivity
 
 /**
- * The home-screen widget: start a focus session without opening the app, and see at a glance
- * whether one is running.
+ * The home-screen widget: start a session, or see the one running.
  *
- * This is the Android counterpart of the macOS menu-bar item and the Windows tray panel, and it
- * exists for the same reason: a focus tool that takes four taps to arm gets used on the days you
- * least need it and skipped on the days you do. Two states, one tap each —
- *
- *   idle    "What are you working on?" + a one-tap repeat of your last task
- *   running the task, the countdown, and how many checks have run
- *
- * It deliberately shows whether anything is being watched. The app holds an AccessibilityService
- * that can read the screen, so a widget that looked identical whether or not monitoring was live
- * would be hiding the one fact the user most needs on their home screen.
+ * The Android counterpart of the macOS menu-bar item and the Windows tray panel. It shows whether
+ * anything is being watched, because that is the one fact worth having on a home screen for an app
+ * that holds an AccessibilityService.
  */
 class FocusWidget : AppWidgetProvider() {
 
@@ -71,13 +63,12 @@ class FocusWidget : AppWidgetProvider() {
             views.setInt(R.id.widget_bar, "setBackgroundColor", if (locked) RED else READOUT)
         }
 
-        // The whole widget is the button. Tapping it always lands on the start screen, which shows
-        // the running session when there is one — so there is no state in which a tap does nothing.
+        // The whole widget is the button, and always lands somewhere useful: the start screen
+        // shows the running session when there is one.
         val intent = Intent(ctx, FocusStartActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            // A widget tap on an idle widget with a remembered task means "same again", which the
-            // start screen turns into a one-tap confirm rather than a silent start. Starting a
-            // locked session from a home-screen tap with no confirmation would be a trap.
+            // Starting a locked session from a stray home-screen tap would be a trap, so the
+            // start screen always confirms rather than starting silently.
             putExtra(FocusStartActivity.EXTRA_FROM_WIDGET, true)
         }
         views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(
@@ -95,12 +86,7 @@ class FocusWidget : AppWidgetProvider() {
         private const val RED = 0xFFE0533D.toInt()
         private const val READOUT = 0xFF9AE6C9.toInt()
 
-        /**
-         * Ask every placed widget to repaint. Called when a session starts or ends and after each
-         * check, so the countdown on the home screen is not a lie.
-         *
-         * Cheap and safe to call from any thread; a device with no widget placed does nothing.
-         */
+        /** Repaint every placed widget. Safe from any thread; a no-op with no widget placed. */
         fun refresh(ctx: Context) {
             runCatching {
                 ctx.sendBroadcast(Intent(ctx, FocusWidget::class.java).setAction(ACTION_REFRESH))
