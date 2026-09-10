@@ -8,11 +8,10 @@ The original content-rules mode is still here, opt-in and off by default, under 
 
 > ⚠️ Run this only on a Mac **you own**, or where the person using it has knowingly agreed.
 
-> **Status: written, not yet built.** The focus-mode Swift was ported from the tested Windows
-> implementation and is structurally checked (`python tools/check_macos.py` and
-> `tools/check_xcodeproj.py` from the repo root), but it has not been through a compiler. Treat
-> the first `xcodebuild` as the real test — and see the `macos` job in
-> `.github/workflows/build.yml`, which runs exactly that on every push.
+> **Status: builds and tests clean** on Xcode 16.4, via the `macos` job in
+> `.github/workflows/build.yml`, which runs `xcodebuild test` on every push. What has NOT happened
+> is anyone running it on a real Mac and watching it block something — the tests cover the logic,
+> not the ScreenCaptureKit path or the menu-bar UI.
 
 ## Requirements
 

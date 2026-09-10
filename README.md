@@ -33,9 +33,9 @@ For **Windows**, **macOS**, **Android**, and **iOS**.
                                                  + your partner is told
 ```
 
-> **Alpha.** The Windows and Android apps are compiled and tested (see [Status](#status)). macOS is
-> written and structurally checked but has not been through Xcode. iOS is written and has never been
-> built. Expect rough edges, and read the [honest status table](#status) before trusting any of it.
+> **Alpha.** Windows, Android and macOS are compiled and tested in CI (see [Status](#status)). iOS is
+> written and has never been built — it needs an Apple entitlement no CI runner can hold. Expect
+> rough edges, and read the [honest status table](#status) before trusting any of it.
 
 ---
 
@@ -102,11 +102,14 @@ Nothing below is aspirational. "Verified" means a command was run and passed.
 
 | | Windows | Android | macOS | iOS |
 |---|---|---|---|---|
-| Compiles | ✅ | ✅ | ⚠️ not attempted | ⚠️ not attempted |
-| Unit tests | ✅ 108 | ✅ 58 | ⚠️ needs Xcode | — none written |
-| Runs end to end | ✅ | ✅ APK builds | ⚠️ | ⚠️ |
-| Packaged build launches | ✅ | ✅ | ⚠️ | ⚠️ |
+| Compiles | ✅ | ✅ | ✅ Xcode 16.4 | ⚠️ not attempted |
+| Unit tests | ✅ 109 | ✅ 58 | ✅ 12 | — none written |
+| Runs end to end | ✅ | ✅ APK builds | ✅ `xcodebuild test` | ⚠️ |
+| Packaged build launches | ✅ | ✅ | — unsigned only | ⚠️ |
 | Structure checked | ✅ | ✅ | ✅ | ✅ |
+
+Every ✅ above is a job in [`.github/workflows/build.yml`](.github/workflows/build.yml) that runs on
+every push — so the table goes red on its own if it stops being true.
 
 Plus the [learner](learner/): 71 tests, and a measured before/after scorecard.
 
@@ -120,11 +123,15 @@ It prints `PASS` / `FAIL` / `SKIP` and never lets a skip look like a pass. On Wi
 and an Android SDK you should see **8 passed, 0 failed, 2 skipped** — the two skips being the macOS
 and iOS Xcode builds, which need a Mac.
 
-**What "not attempted" means for macOS and iOS:** the Swift was written by porting the verified
-Windows logic, and `tools/check_macos.py` / `tools/check_ios.py` verify delimiters, that every
-referenced symbol exists, that the committed Xcode project compiles every file on disk, and that
-iOS's App Group and bundle ids agree across all five entitlements files. That catches typos. It does
-not catch type errors. Treat the first `xcodebuild` as the real test.
+**What "not attempted" means for iOS:** the Swift is structurally checked —
+`tools/check_ios.py` verifies delimiters, that every referenced symbol exists, and that the App
+Group and bundle ids agree across all five entitlements files, five plists and the project spec.
+That catches typos, not type errors. It cannot be built in CI because Apple grants the
+`family-controls` entitlement by hand, per developer account; see [ios/README.md](ios/README.md).
+
+For calibration on how much that gap matters: macOS was in exactly this state one commit ago, and
+its first real compile found **one** error — an ambiguous `String.init` overload in a chained
+expression. Structural checking is worth something. It is not worth as much as a compiler.
 
 ---
 
@@ -248,7 +255,7 @@ so the interval is your cost dial.
 ```
 windows/     Python + Tk. Tray panel, mini dashboard. Verified.
 android/     Kotlin. Home-screen widget, accessibility capture. Verified.
-macos/       Swift + SwiftUI. Menu-bar item, ScreenCaptureKit. Not built.
+macos/       Swift + SwiftUI. Menu-bar item, ScreenCaptureKit. Verified.
 ios/         Swift. Screen Time shields instead of screen reading — read its README first.
 learner/     Offline, stdlib-only Python. The false-alarm learner and its scorecard.
 tools/       verify.py and the structural checkers.

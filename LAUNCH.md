@@ -69,9 +69,10 @@ the second sentence lands as a small joke that also happens to be the feature.
 > false alarms from 49% to 6.9% in simulation, and made missed distractions *worse* (13% → 25%).
 > Both numbers are in the repo, because the second one is the interesting one.
 >
-> Free, open source, self-hosted models supported. **Windows and Android are built and tested
-> today**; macOS and iOS are written but I haven't had them through Xcode yet — the README has an
-> honest per-platform status table rather than four green ticks.
+> Free, open source, self-hosted models supported. **Windows, Android and macOS build and pass
+> their tests in CI**; iOS is written but unbuilt — it needs an Apple entitlement granted by hand
+> per developer account. The README has an honest per-platform status table rather than four green
+> ticks.
 >
 > Happy to answer anything, especially if you think the false-alarm trade-off is wrong.
 
@@ -119,8 +120,9 @@ the second sentence lands as a small joke that also happens to be the feature.
 >   confidence calibration causes all of the regression, so the recommendation is to ship one and
 >   flag the other.
 >
-> Windows (Python/Tk) and Android (Kotlin) are compiled and tested — 108 and 58 tests. macOS
-> (SwiftUI) and iOS are written and structurally checked but have never been near Xcode, and the
+> Windows (Python/Tk), Android (Kotlin) and macOS (SwiftUI) compile and pass their tests in CI —
+> 109, 58 and 12. iOS is written and structurally checked but unbuilt: Apple grants the
+> `family-controls` entitlement by hand per developer account, so no CI runner can hold it. The
 > README says so rather than claiming four platforms.
 >
 > `python tools/verify.py` runs everything the current machine can and prints PASS/FAIL/SKIP without
@@ -145,10 +147,10 @@ r/LocalLLaMA and r/selfhosted care about the local-model angle, so lead with it:
 > On Android, "local" means a model on your own desktop over Wi-Fi — start Ollama with
 > `OLLAMA_HOST=0.0.0.0` and give the phone your LAN address.
 >
-> Only captures while a session is running (that's a test, not a policy), can't lock you out, MIT-ish
-> licence, and there's an offline learner that turns your "false alarm" presses into a policy that
-> stops the same interruption happening twice. Windows + Android built and tested; macOS and iOS
-> written but not yet compiled.
+> Only captures while a session is running (that's a test, not a policy), can't lock you out, and
+> there's an offline learner that turns your "false alarm" presses into a policy that stops the same
+> interruption happening twice. Windows, Android and macOS build and test green in CI; iOS is
+> written but unbuilt.
 
 For r/productivity, drop the local-model paragraph and lead with the false-alarm trade-off instead —
 that audience cares about whether it will annoy them, not about inference.
@@ -213,8 +215,9 @@ that audience cares about whether it will annoy them, not about inference.
 > Both numbers are in the repo. The second one is the interesting one.
 
 **9/**
-> Free and open source. Windows + Android built and tested today, macOS + iOS written but not yet
-> compiled — the README has a per-platform status table instead of four green ticks.
+> Free and open source. Windows, Android and macOS build and test green in CI; iOS is written but
+> needs an Apple entitlement first — the README has a per-platform status table instead of four
+> green ticks.
 >
 > [link]
 
@@ -272,24 +275,28 @@ shields instead: the model picks which apps to shut for your task, and iOS enfor
 strictly more private.
 
 **"Is it done?"**
-No. Windows and Android are built and tested; macOS and iOS are written but haven't been compiled.
-The README's status table distinguishes "passed a test" from "looks right".
+No. Windows, Android and macOS build and pass their tests on every push; iOS is written but unbuilt.
+Nobody has yet run it on a Mac and watched it block something in anger, either — the tests cover the
+logic, not the capture path. The README's status table distinguishes "passed a test" from "looks
+right".
 
 ---
 
 ## Before you post this
 
-**Two of four platforms are unbuilt.** The copy above is written to be true anyway — it says
-"Windows and Android today" everywhere it counts. But a Product Hunt launch drives people to a
-download page, so consider:
+**Three platforms build; iOS doesn't, and downloads exist for two.** macOS compiles and tests
+green in CI but ships unsigned, so there is no download for it — people build it themselves.
+That's normal for a dev-audience launch and awkward for a general one. So:
 
-1. **Launch now on Windows + Android**, and describe macOS/iOS as in progress. The copy above does
-   this. Lowest risk, and the honest status table tends to *earn* goodwill on HN specifically.
-2. **Get macOS through Xcode first** (an afternoon: `cd macos && xcodegen generate`, fix what the
-   compiler finds, `python tools/verify.py`) and launch with three. macOS is the audience most
-   likely to want this.
-3. **Wait for iOS** only if you're prepared for the entitlement wait — Apple grants
-   `family-controls` by hand, per account, and it can take days. Don't gate a launch on it.
+1. **Launch now.** The copy above already says "Windows, Android and macOS build green; iOS is
+   written but unbuilt". Lowest risk, and an honest status table tends to *earn* goodwill on HN.
+2. **Notarise a macOS build first** if you want three downloads instead of two. Needs a paid Apple
+   account and an afternoon.
+3. **Don't gate the launch on iOS.** Apple grants `family-controls` by hand, per account, and it
+   can take days.
+
+Worth doing regardless: **actually run it on a Mac.** CI proves it compiles and the logic tests
+pass; it does not prove ScreenCaptureKit grabs a frame or that the menu-bar item behaves.
 
 Also worth doing before you post: **tag a release** so the download links in the README actually
 resolve. `git tag v0.1.0 && git push --tags` triggers the workflow in
