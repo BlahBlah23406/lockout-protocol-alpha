@@ -120,9 +120,18 @@ jobs:
   # a build check and not distributable.
   # ---------------------------------------------------------------------------------------------
   macos:
-    runs-on: macos-14
+    # macos-15, not macos-14: the committed project is objectVersion 77, and the -14 image's
+    # default Xcode (15.4) refuses to open it with "a future Xcode project file format". The format
+    # is what XcodeGen produced and is correct; the runner was the old one.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      # Printed because "which Xcode" is the first question when a build fails on a hosted runner,
+      # and the images change under you without notice.
+      - name: Xcode version
+        run: xcodebuild -version
+
       - name: Build and test
         working-directory: macos
         run: |
