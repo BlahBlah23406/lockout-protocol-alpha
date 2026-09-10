@@ -1,8 +1,8 @@
 # Launch copy
 
-Copy-paste ready. Everything here is written to be **true today** — Windows and Android are built
-and tested, macOS and iOS are written but have never been through Xcode. See the note at the bottom
-before you launch, because that shapes what you can honestly claim.
+Copy-paste ready. Everything here is written to be **true today** — Windows, Android and macOS build
+and pass their tests in CI; iOS is written but unbuilt. See the note at the bottom before you
+launch, because downloads exist for only two of the three that build.
 
 ---
 
