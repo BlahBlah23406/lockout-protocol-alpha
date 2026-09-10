@@ -120,14 +120,18 @@ enum LearnedPolicy {
     static func lookupKey(task: String, app: String) -> String {
         let stop: Set<String> = ["the", "a", "an", "my", "for", "on", "to", "of", "and", "in",
                                  "working", "work", "doing", "do", "some", "this", "that"]
-        let words = task.lowercased()
-            .map { $0.isLetter || $0.isNumber ? $0 : " " }
+        // Rebuilt into a String before splitting rather than chained off `map`. Mapping a String
+        // yields [Character]; splitting that yields [ArraySlice<Character>], and `String.init` has
+        // enough overloads for those that the compiler gives up on the tail of the chain with
+        // "ambiguous use of 'prefix'". Naming the intermediate costs one line and removes the
+        // guesswork.
+        let flattened = String(task.lowercased().map { $0.isLetter || $0.isNumber ? $0 : " " })
+        let words: [String] = flattened
             .split(separator: " ")
-            .map(String.init)
+            .map { String($0) }
             .filter { !stop.contains($0) && $0.count > 2 }
-            .prefix(4)
         let appKey = app.trimmingCharacters(in: .whitespaces).lowercased()
-        return "\(words.joined(separator: "-"))|\(appKey)"
+        return "\(words.prefix(4).joined(separator: "-"))|\(appKey)"
     }
 
     /// One line for the settings screen, so "learning is on" is never an unverifiable claim.
